@@ -1,10 +1,14 @@
 from fastapi import FastAPI
 
+from app.routers.students import router as students_router
+
 app = FastAPI(
     title="Student Management API",
     description="Backend API for managing students, courses, attendance, and fees.",
     version="1.0.0",
 )
+
+app.include_router(students_router)
 
 
 @app.get("/")

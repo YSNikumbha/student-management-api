@@ -16,6 +16,16 @@ class StudentCreate(StudentBase):
     pass
 
 
+class StudentUpdate(BaseModel):
+    student_code: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    email: EmailStr | None = None
+    phone: str | None = None
+    date_of_birth: date | None = None
+    status: str | None = None
+
+
 class StudentResponse(StudentBase):
     id: int
     status: str
