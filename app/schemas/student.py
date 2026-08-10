@@ -10,6 +10,7 @@ class StudentBase(BaseModel):
     email: EmailStr
     phone: str | None = None
     date_of_birth: date | None = None
+    course_id: int | None = None
 
 
 class StudentCreate(StudentBase):
@@ -23,6 +24,7 @@ class StudentUpdate(BaseModel):
     email: EmailStr | None = None
     phone: str | None = None
     date_of_birth: date | None = None
+    course_id: int | None = None
     status: str | None = None
 
 

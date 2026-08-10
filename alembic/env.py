@@ -6,6 +6,7 @@ from sqlalchemy import pool
 from alembic import context
 from app.database.base import Base
 from app.database.database import DATABASE_URL
+from app.models.course import Course  # noqa: F401
 from app.models.student import Student  # noqa: F401
 
 # this is the Alembic Config object, which provides
@@ -46,6 +47,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        render_as_batch=True,
     )
 
     with context.begin_transaction():
@@ -67,7 +69,9 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            render_as_batch=True,
         )
 
         with context.begin_transaction():

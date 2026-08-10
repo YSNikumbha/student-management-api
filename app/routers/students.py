@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.database.database import get_db
 from app.models.student import Student
 from app.schemas.student import StudentCreate, StudentResponse, StudentUpdate
-from app.services import student_service
+from app.services import course_service, student_service
 
 
 router = APIRouter(
@@ -23,6 +23,14 @@ def _duplicate_detail(error: IntegrityError) -> str:
     return "A student with this email or student code already exists"
 
 
+def _validate_course_id(db: Session, course_id: int | None) -> None:
+    if course_id is not None and course_service.get_course_by_id(db, course_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Course not found",
+        )
+
+
 @router.post(
     "",
     response_model=StudentResponse,
@@ -32,6 +40,8 @@ def create_student(
     student_data: StudentCreate,
     db: Session = Depends(get_db),
 ) -> Student:
+    _validate_course_id(db, student_data.course_id)
+
     if student_service.get_student_by_email(db, student_data.email):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -88,6 +98,8 @@ def update_student(
         )
 
     update_data = student_data.model_dump(exclude_unset=True)
+    if "course_id" in update_data:
+        _validate_course_id(db, update_data["course_id"])
 
     email = update_data.get("email")
     if email is not None and email != student.email:
