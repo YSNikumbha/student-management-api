@@ -1,10 +1,12 @@
 let students = [];
 let courses = [];
 let studentModal;
+let studentAttendanceModal;
 let currentUser;
 
 document.addEventListener("DOMContentLoaded", () => {
   studentModal = new bootstrap.Modal(document.querySelector("#studentModal"));
+  studentAttendanceModal = new bootstrap.Modal(document.querySelector("#studentAttendanceModal"));
   currentUser = AdminApp.getCurrentUser();
 
   const addButton = document.querySelector("#open-add-student");
@@ -111,6 +113,9 @@ function renderStudents() {
         <td>${AdminApp.statusBadge(student.status)}</td>
         <td class="text-end">
           <span class="table-actions">
+            <button class="btn btn-sm btn-outline-secondary btn-icon" type="button" data-action="attendance" data-id="${student.id}" aria-label="View attendance">
+              <i class="bi bi-calendar-check"></i>
+            </button>
             <button class="btn btn-sm btn-outline-primary btn-icon" type="button" data-action="edit" data-id="${student.id}" aria-label="Edit student">
               <i class="bi bi-pencil"></i>
             </button>
@@ -215,6 +220,11 @@ async function handleStudentAction(event) {
     return;
   }
 
+  if (button.dataset.action === "attendance") {
+    showStudentAttendance(studentId);
+    return;
+  }
+
   if (!window.confirm("Are you sure you want to delete this student?")) {
     return;
   }
@@ -228,5 +238,78 @@ async function handleStudentAction(event) {
     AdminApp.showAlert("#students-alert", error.message, "danger");
   } finally {
     button.disabled = false;
+  }
+}
+
+async function showStudentAttendance(studentId) {
+  const student = students.find((item) => item.id === studentId);
+  const title = document.querySelector("#studentAttendanceModalTitle");
+  const summaryContainer = document.querySelector("#student-attendance-summary");
+  const historyBody = document.querySelector("#student-attendance-history");
+
+  title.textContent = student
+    ? `Attendance - ${student.first_name} ${student.last_name}`
+    : "Student Attendance";
+  summaryContainer.innerHTML = "";
+  historyBody.innerHTML = `
+    <tr>
+      <td colspan="3" class="text-center text-muted py-4">Loading...</td>
+    </tr>
+  `;
+  AdminApp.clearAlert("#student-attendance-alert");
+  studentAttendanceModal.show();
+
+  try {
+    const [summary, history] = await Promise.all([
+      AdminApp.authFetch(`/attendance/student/${studentId}/summary`),
+      AdminApp.authFetch(`/attendance/student/${studentId}`),
+    ]);
+
+    summaryContainer.innerHTML = `
+      <div>
+        <span class="mini-label">Marked</span>
+        <strong>${AdminApp.escapeHtml(summary.total_marked_days)}</strong>
+      </div>
+      <div>
+        <span class="mini-label">Present</span>
+        <strong>${AdminApp.escapeHtml(summary.present_days)}</strong>
+      </div>
+      <div>
+        <span class="mini-label">Absent</span>
+        <strong>${AdminApp.escapeHtml(summary.absent_days)}</strong>
+      </div>
+      <div>
+        <span class="mini-label">Late</span>
+        <strong>${AdminApp.escapeHtml(summary.late_days)}</strong>
+      </div>
+      <div>
+        <span class="mini-label">Attendance %</span>
+        <strong>${AdminApp.escapeHtml(summary.attendance_percentage)}%</strong>
+      </div>
+    `;
+
+    if (history.length === 0) {
+      historyBody.innerHTML = `
+        <tr>
+          <td colspan="3" class="text-center text-muted py-4">No attendance records found.</td>
+        </tr>
+      `;
+      return;
+    }
+
+    historyBody.innerHTML = history.map((record) => `
+      <tr>
+        <td>${AdminApp.escapeHtml(record.date)}</td>
+        <td>${AdminApp.attendanceBadge(record.status)}</td>
+        <td>${AdminApp.escapeHtml(record.remarks || "")}</td>
+      </tr>
+    `).join("");
+  } catch (error) {
+    AdminApp.showAlert("#student-attendance-alert", error.message, "danger");
+    historyBody.innerHTML = `
+      <tr>
+        <td colspan="3" class="text-center text-muted py-4">Unable to load attendance.</td>
+      </tr>
+    `;
   }
 }

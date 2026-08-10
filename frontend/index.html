@@ -61,6 +61,41 @@
           <section class="content-panel mt-4">
             <div class="panel-header">
               <div>
+                <h2>Today's Attendance</h2>
+                <p id="attendance-date-label">Live attendance status for today</p>
+              </div>
+              <a class="btn btn-sm btn-outline-primary" href="/admin/attendance">
+                <i class="bi bi-calendar-check"></i>
+                Attendance
+              </a>
+            </div>
+
+            <div id="today-attendance-empty" class="text-muted d-none">
+              No attendance marked today.
+            </div>
+            <div id="today-attendance-summary" class="attendance-mini-grid">
+              <div>
+                <span class="mini-label">Marked</span>
+                <strong id="today-marked">...</strong>
+              </div>
+              <div>
+                <span class="mini-label">Present</span>
+                <strong id="today-present">...</strong>
+              </div>
+              <div>
+                <span class="mini-label">Absent</span>
+                <strong id="today-absent">...</strong>
+              </div>
+              <div>
+                <span class="mini-label">Late</span>
+                <strong id="today-late">...</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="content-panel mt-4">
+            <div class="panel-header">
+              <div>
                 <h2>Recent Students</h2>
                 <p>Newest student records from the API</p>
               </div>

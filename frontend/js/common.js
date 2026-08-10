@@ -6,7 +6,7 @@ const AdminApp = (() => {
     { key: "dashboard", label: "Dashboard", icon: "bi-speedometer2", href: "/admin" },
     { key: "students", label: "Students", icon: "bi-people", href: "/admin/students" },
     { key: "courses", label: "Courses", icon: "bi-journal-bookmark", href: "/admin/courses" },
-    { key: "attendance", label: "Attendance", icon: "bi-calendar-check", disabled: true },
+    { key: "attendance", label: "Attendance", icon: "bi-calendar-check", href: "/admin/attendance" },
     { key: "fees", label: "Fees", icon: "bi-cash-coin", disabled: true },
     { key: "reports", label: "Reports", icon: "bi-bar-chart", disabled: true },
   ];
@@ -38,6 +38,18 @@ const AdminApp = (() => {
     const label = isActive ? "Active" : "Inactive";
     const cssClass = isActive ? "status-active" : "status-inactive";
     return `<span class="status-badge ${cssClass}">${label}</span>`;
+  }
+
+  function attendanceBadge(value) {
+    const normalizedValue = String(value).toLowerCase();
+    const cssClassByStatus = {
+      present: "status-active",
+      absent: "status-inactive",
+      late: "status-pending",
+    };
+    const label = normalizedValue.charAt(0).toUpperCase() + normalizedValue.slice(1);
+    const cssClass = cssClassByStatus[normalizedValue] || "status-pending";
+    return `<span class="status-badge ${cssClass}">${escapeHtml(label)}</span>`;
   }
 
   function getToken() {
@@ -357,6 +369,7 @@ const AdminApp = (() => {
 
   return {
     apiRequest,
+    attendanceBadge,
     authFetch,
     clearAlert,
     escapeHtml,

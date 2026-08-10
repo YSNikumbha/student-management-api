@@ -345,6 +345,11 @@ a {
   color: #991b1b;
 }
 
+.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .muted-cell {
   color: var(--muted);
 }
@@ -375,6 +380,46 @@ a {
 
 .sidebar-backdrop {
   display: none;
+}
+
+.attendance-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.attendance-mini-grid > div {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.85rem;
+  background: #f8fafc;
+}
+
+.mini-label {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.attendance-mini-grid strong {
+  font-size: 1.45rem;
+}
+
+.attendance-controls {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(180px, 240px) auto;
+  gap: 1rem;
+  align-items: end;
+}
+
+.attendance-control-actions {
+  display: flex;
+}
+
+.attendance-status {
+  min-width: 140px;
 }
 
 .login-page {
@@ -462,9 +507,14 @@ a {
 
   .panel-header,
   .panel-header-actions,
-  .toolbar {
+  .toolbar,
+  .attendance-controls {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .attendance-controls {
+    display: flex;
   }
 
   .input-icon {
@@ -491,5 +541,9 @@ a {
 
   .topbar-user {
     gap: 0.35rem;
+  }
+
+  .attendance-mini-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }

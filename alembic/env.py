@@ -6,6 +6,7 @@ from sqlalchemy import pool
 from alembic import context
 from app.database.base import Base
 from app.database.database import DATABASE_URL
+from app.models.attendance import Attendance  # noqa: F401
 from app.models.course import Course  # noqa: F401
 from app.models.student import Student  # noqa: F401
 from app.models.user import User  # noqa: F401
