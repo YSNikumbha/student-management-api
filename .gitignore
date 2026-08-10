@@ -7,3 +7,8 @@ __pycache__/
 .vscode/
 .pytest_cache/
 *.db
+
+# Test artifacts
+test_output*.txt
+error_test.txt
+test_student_management.db
