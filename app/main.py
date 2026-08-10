@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.routers.auth import router as auth_router
 from app.routers.courses import router as courses_router
 from app.routers.students import router as students_router
 
@@ -15,6 +16,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
+app.include_router(auth_router)
 app.include_router(students_router)
 app.include_router(courses_router)
 app.mount("/admin/assets", StaticFiles(directory=FRONTEND_DIR), name="admin-assets")
@@ -43,3 +45,8 @@ def read_admin_students() -> FileResponse:
 @app.get("/admin/courses", include_in_schema=False)
 def read_admin_courses() -> FileResponse:
     return FileResponse(FRONTEND_DIR / "courses.html")
+
+
+@app.get("/login", include_in_schema=False)
+def read_login() -> FileResponse:
+    return FileResponse(FRONTEND_DIR / "login.html")

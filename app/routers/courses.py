@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
+from app.dependencies.auth import get_current_user, require_admin
 from app.models.course import Course
 from app.schemas.course import CourseCreate, CourseResponse, CourseUpdate
 from app.services import course_service
@@ -22,6 +23,7 @@ def _duplicate_detail(_error: IntegrityError) -> str:
     "",
     response_model=CourseResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
 )
 def create_course(
     course_data: CourseCreate,
@@ -43,12 +45,20 @@ def create_course(
         ) from error
 
 
-@router.get("", response_model=list[CourseResponse])
+@router.get(
+    "",
+    response_model=list[CourseResponse],
+    dependencies=[Depends(get_current_user)],
+)
 def get_courses(db: Session = Depends(get_db)) -> list[Course]:
     return course_service.get_courses(db)
 
 
-@router.get("/{course_id}", response_model=CourseResponse)
+@router.get(
+    "/{course_id}",
+    response_model=CourseResponse,
+    dependencies=[Depends(get_current_user)],
+)
 def get_course(
     course_id: int,
     db: Session = Depends(get_db),
@@ -63,7 +73,11 @@ def get_course(
     return course
 
 
-@router.put("/{course_id}", response_model=CourseResponse)
+@router.put(
+    "/{course_id}",
+    response_model=CourseResponse,
+    dependencies=[Depends(require_admin)],
+)
 def update_course(
     course_id: int,
     course_data: CourseUpdate,
@@ -96,7 +110,11 @@ def update_course(
         ) from error
 
 
-@router.delete("/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{course_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
 def delete_course(
     course_id: int,
     db: Session = Depends(get_db),

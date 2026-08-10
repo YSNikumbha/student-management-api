@@ -1,11 +1,18 @@
 let students = [];
 let courses = [];
 let studentModal;
+let currentUser;
 
 document.addEventListener("DOMContentLoaded", () => {
   studentModal = new bootstrap.Modal(document.querySelector("#studentModal"));
+  currentUser = AdminApp.getCurrentUser();
 
-  document.querySelector("#open-add-student").addEventListener("click", prepareAddStudent);
+  const addButton = document.querySelector("#open-add-student");
+  if (currentUser?.role !== "admin") {
+    addButton.classList.add("d-none");
+  }
+
+  addButton.addEventListener("click", prepareAddStudent);
   document.querySelector("#student-form").addEventListener("submit", saveStudent);
   document.querySelector("#student-search").addEventListener("input", renderStudents);
   document.querySelector("#students-table-body").addEventListener("click", handleStudentAction);
@@ -23,7 +30,7 @@ async function loadStudentsPage() {
 }
 
 async function loadCoursesForStudents() {
-  courses = await AdminApp.apiRequest("/courses");
+  courses = await AdminApp.authFetch("/courses");
   renderCourseOptions();
 }
 
@@ -35,7 +42,7 @@ async function loadStudents() {
     </tr>
   `;
 
-  students = await AdminApp.apiRequest("/students");
+  students = await AdminApp.authFetch("/students");
   renderStudents();
 }
 
@@ -85,6 +92,14 @@ function renderStudents() {
     const course = courseById.get(student.course_id);
     const courseName = course ? course.name : "Not Assigned";
 
+    const deleteButton = currentUser?.role === "admin"
+      ? `
+            <button class="btn btn-sm btn-outline-danger btn-icon" type="button" data-action="delete" data-id="${student.id}" aria-label="Delete student">
+              <i class="bi bi-trash"></i>
+            </button>
+        `
+      : "";
+
     return `
       <tr>
         <td>${AdminApp.escapeHtml(student.id)}</td>
@@ -99,9 +114,7 @@ function renderStudents() {
             <button class="btn btn-sm btn-outline-primary btn-icon" type="button" data-action="edit" data-id="${student.id}" aria-label="Edit student">
               <i class="bi bi-pencil"></i>
             </button>
-            <button class="btn btn-sm btn-outline-danger btn-icon" type="button" data-action="delete" data-id="${student.id}" aria-label="Delete student">
-              <i class="bi bi-trash"></i>
-            </button>
+            ${deleteButton}
           </span>
         </td>
       </tr>
@@ -167,13 +180,13 @@ async function saveStudent(event) {
 
   try {
     if (studentId) {
-      await AdminApp.apiRequest(`/students/${studentId}`, {
+      await AdminApp.authFetch(`/students/${studentId}`, {
         method: "PUT",
         body: payload,
       });
       AdminApp.showAlert("#students-alert", "Student updated successfully.", "success");
     } else {
-      await AdminApp.apiRequest("/students", {
+      await AdminApp.authFetch("/students", {
         method: "POST",
         body: payload,
       });
@@ -208,7 +221,7 @@ async function handleStudentAction(event) {
 
   button.disabled = true;
   try {
-    await AdminApp.apiRequest(`/students/${studentId}`, { method: "DELETE" });
+    await AdminApp.authFetch(`/students/${studentId}`, { method: "DELETE" });
     AdminApp.showAlert("#students-alert", "Student deleted successfully.", "success");
     await loadStudents();
   } catch (error) {

@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
+from app.dependencies.auth import get_current_user, require_admin
 from app.models.student import Student
 from app.schemas.student import StudentCreate, StudentResponse, StudentUpdate
 from app.services import course_service, student_service
@@ -35,6 +36,7 @@ def _validate_course_id(db: Session, course_id: int | None) -> None:
     "",
     response_model=StudentResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
 )
 def create_student(
     student_data: StudentCreate,
@@ -64,12 +66,20 @@ def create_student(
         ) from error
 
 
-@router.get("", response_model=list[StudentResponse])
+@router.get(
+    "",
+    response_model=list[StudentResponse],
+    dependencies=[Depends(get_current_user)],
+)
 def get_students(db: Session = Depends(get_db)) -> list[Student]:
     return student_service.get_students(db)
 
 
-@router.get("/{student_id}", response_model=StudentResponse)
+@router.get(
+    "/{student_id}",
+    response_model=StudentResponse,
+    dependencies=[Depends(get_current_user)],
+)
 def get_student(
     student_id: int,
     db: Session = Depends(get_db),
@@ -84,7 +94,11 @@ def get_student(
     return student
 
 
-@router.put("/{student_id}", response_model=StudentResponse)
+@router.put(
+    "/{student_id}",
+    response_model=StudentResponse,
+    dependencies=[Depends(get_current_user)],
+)
 def update_student(
     student_id: int,
     student_data: StudentUpdate,
@@ -129,7 +143,11 @@ def update_student(
         ) from error
 
 
-@router.delete("/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{student_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
 def delete_student(
     student_id: int,
     db: Session = Depends(get_db),

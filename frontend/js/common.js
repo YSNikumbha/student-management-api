@@ -1,4 +1,7 @@
 const AdminApp = (() => {
+  const TOKEN_KEY = "student_management_token";
+  const USER_KEY = "student_management_user";
+
   const navItems = [
     { key: "dashboard", label: "Dashboard", icon: "bi-speedometer2", href: "/admin" },
     { key: "students", label: "Students", icon: "bi-people", href: "/admin/students" },
@@ -37,6 +40,56 @@ const AdminApp = (() => {
     return `<span class="status-badge ${cssClass}">${label}</span>`;
   }
 
+  function getToken() {
+    return localStorage.getItem(TOKEN_KEY);
+  }
+
+  function getCurrentUser() {
+    const storedUser = localStorage.getItem(USER_KEY);
+    if (!storedUser) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(storedUser);
+    } catch {
+      localStorage.removeItem(USER_KEY);
+      return null;
+    }
+  }
+
+  function isAuthenticated() {
+    return Boolean(getToken() && getCurrentUser());
+  }
+
+  function saveAuthSession(token, user) {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  }
+
+  function logout() {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    window.location.href = "/login";
+  }
+
+  function redirectToLogin() {
+    const next = window.location.pathname.startsWith("/admin")
+      ? `?next=${encodeURIComponent(window.location.pathname)}`
+      : "";
+    window.location.href = `/login${next}`;
+  }
+
+  function requireLoginForAdminPages() {
+    if (document.body.dataset.publicPage === "true") {
+      return;
+    }
+
+    if (window.location.pathname.startsWith("/admin") && !isAuthenticated()) {
+      redirectToLogin();
+    }
+  }
+
   async function apiRequest(url, options = {}) {
     const fetchOptions = {
       ...options,
@@ -52,7 +105,40 @@ const AdminApp = (() => {
     }
 
     const response = await fetch(url, fetchOptions);
+    return handleResponse(response);
+  }
 
+  async function authFetch(url, options = {}) {
+    const token = getToken();
+    if (!token) {
+      redirectToLogin();
+      throw new Error("Please log in to continue.");
+    }
+
+    try {
+      return await apiRequest(url, {
+        ...options,
+        headers: {
+          ...(options.headers || {}),
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch (error) {
+      if (error.status === 401) {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+        redirectToLogin();
+      }
+
+      if (error.status === 403) {
+        error.message = "You do not have permission to perform this action.";
+      }
+
+      throw error;
+    }
+  }
+
+  async function handleResponse(response) {
     if (response.status === 204) {
       if (!response.ok) {
         throw buildApiError(response, null);
@@ -156,9 +242,11 @@ const AdminApp = (() => {
   }
 
   function initLayout() {
+    requireLoginForAdminPages();
     renderSidebar();
     renderTopbar();
     bindSidebarToggle();
+    bindLogout();
   }
 
   function renderSidebar() {
@@ -213,7 +301,10 @@ const AdminApp = (() => {
       return;
     }
 
+    const user = getCurrentUser();
     const title = document.body.dataset.title || "Dashboard";
+    const name = user ? user.name : "Admin";
+    const role = user ? user.role : "";
     topbar.innerHTML = `
       <div class="d-flex align-items-center gap-3">
         <button id="sidebar-toggle" class="btn btn-outline-secondary btn-icon mobile-menu-button" type="button" aria-label="Open navigation">
@@ -224,9 +315,16 @@ const AdminApp = (() => {
           <p class="topbar-project">Student Management System</p>
         </div>
       </div>
-      <div class="admin-chip">
-        <span class="avatar-dot"><i class="bi bi-person"></i></span>
-        <span>Admin</span>
+      <div class="topbar-user">
+        <div class="admin-chip">
+          <span class="avatar-dot"><i class="bi bi-person"></i></span>
+          <span>${escapeHtml(name)}</span>
+          <small>${escapeHtml(role)}</small>
+        </div>
+        <button id="logout-button" class="btn btn-outline-secondary btn-sm" type="button">
+          <i class="bi bi-box-arrow-right"></i>
+          Logout
+        </button>
       </div>
     `;
   }
@@ -248,13 +346,26 @@ const AdminApp = (() => {
     }
   }
 
+  function bindLogout() {
+    const logoutButton = document.querySelector("#logout-button");
+    if (logoutButton) {
+      logoutButton.addEventListener("click", logout);
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", initLayout);
 
   return {
     apiRequest,
+    authFetch,
     clearAlert,
     escapeHtml,
     formatDate,
+    getCurrentUser,
+    getToken,
+    isAuthenticated,
+    logout,
+    saveAuthSession,
     setButtonLoading,
     showAlert,
     statusBadge,

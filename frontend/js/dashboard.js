@@ -7,8 +7,8 @@ async function loadDashboard() {
 
   try {
     const [students, courses] = await Promise.all([
-      AdminApp.apiRequest("/students"),
-      AdminApp.apiRequest("/courses"),
+      AdminApp.authFetch("/students"),
+      AdminApp.authFetch("/courses"),
     ]);
 
     const activeStudents = students.filter((student) => student.status === "active").length;

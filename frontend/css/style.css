@@ -176,6 +176,18 @@ a {
   font-weight: 650;
 }
 
+.admin-chip small {
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.topbar-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .avatar-dot {
   width: 32px;
   height: 32px;
@@ -365,6 +377,47 @@ a {
   display: none;
 }
 
+.login-page {
+  min-height: 100vh;
+  background:
+    linear-gradient(135deg, rgba(36, 84, 214, 0.12), rgba(22, 101, 52, 0.08)),
+    var(--page-bg);
+}
+
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+}
+
+.login-card {
+  width: min(100%, 430px);
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 18px 45px rgba(16, 24, 40, 0.12);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1.35rem;
+}
+
+.login-brand h1 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.login-brand p {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+}
+
 @media (max-width: 1100px) {
   .summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -434,5 +487,9 @@ a {
 
   .admin-chip span {
     display: none;
+  }
+
+  .topbar-user {
+    gap: 0.35rem;
   }
 }

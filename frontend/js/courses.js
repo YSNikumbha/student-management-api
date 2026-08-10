@@ -1,10 +1,17 @@
 let courses = [];
 let courseModal;
+let currentUser;
 
 document.addEventListener("DOMContentLoaded", () => {
   courseModal = new bootstrap.Modal(document.querySelector("#courseModal"));
+  currentUser = AdminApp.getCurrentUser();
 
-  document.querySelector("#open-add-course").addEventListener("click", prepareAddCourse);
+  const addButton = document.querySelector("#open-add-course");
+  if (currentUser?.role !== "admin") {
+    addButton.classList.add("d-none");
+  }
+
+  addButton.addEventListener("click", prepareAddCourse);
   document.querySelector("#course-form").addEventListener("submit", saveCourse);
   document.querySelector("#course-search").addEventListener("input", renderCourses);
   document.querySelector("#courses-table-body").addEventListener("click", handleCourseAction);
@@ -21,7 +28,7 @@ async function loadCourses() {
   `;
 
   try {
-    courses = await AdminApp.apiRequest("/courses");
+    courses = await AdminApp.authFetch("/courses");
     renderCourses();
   } catch (error) {
     AdminApp.showAlert("#courses-alert", error.message, "danger");
@@ -51,6 +58,19 @@ function renderCourses() {
       ? `${course.duration_months} months`
       : "Not Set";
 
+    const actionButtons = currentUser?.role === "admin"
+      ? `
+          <span class="table-actions">
+            <button class="btn btn-sm btn-outline-primary btn-icon" type="button" data-action="edit" data-id="${course.id}" aria-label="Edit course">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger btn-icon" type="button" data-action="delete" data-id="${course.id}" aria-label="Delete course">
+              <i class="bi bi-trash"></i>
+            </button>
+          </span>
+        `
+      : '<span class="muted-cell">View only</span>';
+
     return `
       <tr>
         <td>${AdminApp.escapeHtml(course.id)}</td>
@@ -62,14 +82,7 @@ function renderCourses() {
         <td>${AdminApp.escapeHtml(durationText)}</td>
         <td>${AdminApp.statusBadge(course.is_active, true)}</td>
         <td class="text-end">
-          <span class="table-actions">
-            <button class="btn btn-sm btn-outline-primary btn-icon" type="button" data-action="edit" data-id="${course.id}" aria-label="Edit course">
-              <i class="bi bi-pencil"></i>
-            </button>
-            <button class="btn btn-sm btn-outline-danger btn-icon" type="button" data-action="delete" data-id="${course.id}" aria-label="Delete course">
-              <i class="bi bi-trash"></i>
-            </button>
-          </span>
+          ${actionButtons}
         </td>
       </tr>
     `;
@@ -126,13 +139,13 @@ async function saveCourse(event) {
 
   try {
     if (courseId) {
-      await AdminApp.apiRequest(`/courses/${courseId}`, {
+      await AdminApp.authFetch(`/courses/${courseId}`, {
         method: "PUT",
         body: payload,
       });
       AdminApp.showAlert("#courses-alert", "Course updated successfully.", "success");
     } else {
-      await AdminApp.apiRequest("/courses", {
+      await AdminApp.authFetch("/courses", {
         method: "POST",
         body: payload,
       });
@@ -167,7 +180,7 @@ async function handleCourseAction(event) {
 
   button.disabled = true;
   try {
-    await AdminApp.apiRequest(`/courses/${courseId}`, { method: "DELETE" });
+    await AdminApp.authFetch(`/courses/${courseId}`, { method: "DELETE" });
     AdminApp.showAlert("#courses-alert", "Course deleted successfully.", "success");
     await loadCourses();
   } catch (error) {
