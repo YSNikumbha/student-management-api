@@ -1,5 +1,14 @@
 from fastapi import FastAPI
 
+from app.database.base import Base
+from app.database.database import engine
+
+# Import models so their tables are registered on Base.metadata.
+from app.models.student import Student  # noqa: F401
+
+
+Base.metadata.create_all(bind=engine)
+
 
 app = FastAPI(
     title="Student Management API",
