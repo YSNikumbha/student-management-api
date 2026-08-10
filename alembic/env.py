@@ -8,7 +8,9 @@ from app.database.base import Base
 from app.database.database import DATABASE_URL
 from app.models.attendance import Attendance  # noqa: F401
 from app.models.course import Course  # noqa: F401
+from app.models.payment import Payment  # noqa: F401
 from app.models.student import Student  # noqa: F401
+from app.models.student_fee import StudentFee  # noqa: F401
 from app.models.user import User  # noqa: F401
 
 # this is the Alembic Config object, which provides

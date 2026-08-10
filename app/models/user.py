@@ -1,9 +1,16 @@
+from __future__ import annotations
+
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
+
+if TYPE_CHECKING:
+    from app.models.payment import Payment
+    from app.models.student_fee import StudentFee
 
 
 class User(Base):
@@ -24,4 +31,13 @@ class User(Base):
         DateTime,
         nullable=False,
         default=datetime.utcnow,
+    )
+
+    created_fees: Mapped[list[StudentFee]] = relationship(
+        back_populates="creator",
+        passive_deletes=True,
+    )
+    recorded_payments: Mapped[list[Payment]] = relationship(
+        back_populates="recorder",
+        passive_deletes=True,
     )

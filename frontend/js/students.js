@@ -2,11 +2,13 @@ let students = [];
 let courses = [];
 let studentModal;
 let studentAttendanceModal;
+let studentFeesModal;
 let currentUser;
 
 document.addEventListener("DOMContentLoaded", () => {
   studentModal = new bootstrap.Modal(document.querySelector("#studentModal"));
   studentAttendanceModal = new bootstrap.Modal(document.querySelector("#studentAttendanceModal"));
+  studentFeesModal = new bootstrap.Modal(document.querySelector("#studentFeesModal"));
   currentUser = AdminApp.getCurrentUser();
 
   const addButton = document.querySelector("#open-add-student");
@@ -115,6 +117,9 @@ function renderStudents() {
           <span class="table-actions">
             <button class="btn btn-sm btn-outline-secondary btn-icon" type="button" data-action="attendance" data-id="${student.id}" aria-label="View attendance">
               <i class="bi bi-calendar-check"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-secondary btn-icon" type="button" data-action="fees" data-id="${student.id}" aria-label="View fees">
+              <i class="bi bi-cash-coin"></i>
             </button>
             <button class="btn btn-sm btn-outline-primary btn-icon" type="button" data-action="edit" data-id="${student.id}" aria-label="Edit student">
               <i class="bi bi-pencil"></i>
@@ -225,6 +230,11 @@ async function handleStudentAction(event) {
     return;
   }
 
+  if (button.dataset.action === "fees") {
+    showStudentFees(studentId);
+    return;
+  }
+
   if (!window.confirm("Are you sure you want to delete this student?")) {
     return;
   }
@@ -238,6 +248,57 @@ async function handleStudentAction(event) {
     AdminApp.showAlert("#students-alert", error.message, "danger");
   } finally {
     button.disabled = false;
+  }
+}
+
+async function showStudentFees(studentId) {
+  const student = students.find((item) => item.id === studentId);
+  const title = document.querySelector("#studentFeesModalTitle");
+  const tableBody = document.querySelector("#student-fees-history");
+
+  title.textContent = student
+    ? `Fees - ${student.first_name} ${student.last_name}`
+    : "Student Fees";
+  tableBody.innerHTML = `
+    <tr>
+      <td colspan="6" class="text-center text-muted py-4">Loading...</td>
+    </tr>
+  `;
+  AdminApp.clearAlert("#student-fees-alert");
+  studentFeesModal.show();
+
+  try {
+    const fees = await AdminApp.authFetch(`/fees/student/${studentId}`);
+
+    if (fees.length === 0) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="6" class="text-center text-muted py-4">No fee records found.</td>
+        </tr>
+      `;
+      return;
+    }
+
+    tableBody.innerHTML = fees.map((fee) => `
+      <tr>
+        <td>
+          <div class="fw-semibold">${AdminApp.escapeHtml(fee.title)}</div>
+          <div class="small muted-cell">${AdminApp.escapeHtml(fee.description || "")}</div>
+        </td>
+        <td class="money-cell">${AdminApp.formatCurrency(fee.total_amount)}</td>
+        <td class="money-cell">${AdminApp.formatCurrency(fee.paid_amount)}</td>
+        <td class="money-cell">${AdminApp.formatCurrency(fee.balance)}</td>
+        <td>${AdminApp.escapeHtml(fee.due_date)}</td>
+        <td>${AdminApp.feeStatusBadge(fee.status)}</td>
+      </tr>
+    `).join("");
+  } catch (error) {
+    AdminApp.showAlert("#student-fees-alert", error.message, "danger");
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="6" class="text-center text-muted py-4">Unable to load fees.</td>
+      </tr>
+    `;
   }
 }
 

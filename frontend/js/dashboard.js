@@ -7,10 +7,11 @@ async function loadDashboard() {
 
   try {
     const today = getTodayDateString();
-    const [students, courses, todayAttendance] = await Promise.all([
+    const [students, courses, todayAttendance, feeSummary] = await Promise.all([
       AdminApp.authFetch("/students"),
       AdminApp.authFetch("/courses"),
       AdminApp.authFetch(`/attendance?date=${today}`),
+      AdminApp.authFetch("/fees/summary"),
     ]);
 
     const activeStudents = students.filter((student) => student.status === "active").length;
@@ -23,6 +24,7 @@ async function loadDashboard() {
 
     renderRecentStudents(students, tableBody);
     renderTodayAttendance(todayAttendance, today);
+    renderFeeOverview(feeSummary);
   } catch (error) {
     AdminApp.showAlert("#dashboard-alert", error.message, "danger");
     if (tableBody) {
@@ -33,6 +35,13 @@ async function loadDashboard() {
       `;
     }
   }
+}
+
+function renderFeeOverview(summary) {
+  document.querySelector("#fees-assigned").textContent = AdminApp.formatCurrency(summary.total_assigned);
+  document.querySelector("#fees-collected").textContent = AdminApp.formatCurrency(summary.total_collected);
+  document.querySelector("#fees-pending").textContent = AdminApp.formatCurrency(summary.total_pending);
+  document.querySelector("#fees-overdue").textContent = summary.overdue_count;
 }
 
 function getTodayDateString() {

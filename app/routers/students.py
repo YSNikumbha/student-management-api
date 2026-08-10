@@ -6,7 +6,7 @@ from app.database.database import get_db
 from app.dependencies.auth import get_current_user, require_admin
 from app.models.student import Student
 from app.schemas.student import StudentCreate, StudentResponse, StudentUpdate
-from app.services import course_service, student_service
+from app.services import course_service, fee_service, student_service
 
 
 router = APIRouter(
@@ -159,5 +159,19 @@ def delete_student(
             detail="Student not found",
         )
 
-    student_service.delete_student(db, student)
+    if fee_service.student_has_fees(db, student.id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete student because fee records exist",
+        )
+
+    try:
+        student_service.delete_student(db, student)
+    except IntegrityError as error:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete student because related records exist",
+        ) from error
+
     return Response(status_code=status.HTTP_204_NO_CONTENT)

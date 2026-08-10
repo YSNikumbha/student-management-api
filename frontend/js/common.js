@@ -7,7 +7,7 @@ const AdminApp = (() => {
     { key: "students", label: "Students", icon: "bi-people", href: "/admin/students" },
     { key: "courses", label: "Courses", icon: "bi-journal-bookmark", href: "/admin/courses" },
     { key: "attendance", label: "Attendance", icon: "bi-calendar-check", href: "/admin/attendance" },
-    { key: "fees", label: "Fees", icon: "bi-cash-coin", disabled: true },
+    { key: "fees", label: "Fees", icon: "bi-cash-coin", href: "/admin/fees" },
     { key: "reports", label: "Reports", icon: "bi-bar-chart", disabled: true },
   ];
 
@@ -32,6 +32,16 @@ const AdminApp = (() => {
     return String(value).slice(0, 10);
   }
 
+  function formatCurrency(value) {
+    const amount = Number(value || 0);
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number.isFinite(amount) ? amount : 0);
+  }
+
   function statusBadge(value, activeValue = "active") {
     const normalizedValue = String(value).toLowerCase();
     const isActive = normalizedValue === String(activeValue).toLowerCase() || value === true;
@@ -49,6 +59,19 @@ const AdminApp = (() => {
     };
     const label = normalizedValue.charAt(0).toUpperCase() + normalizedValue.slice(1);
     const cssClass = cssClassByStatus[normalizedValue] || "status-pending";
+    return `<span class="status-badge ${cssClass}">${escapeHtml(label)}</span>`;
+  }
+
+  function feeStatusBadge(value) {
+    const normalizedValue = String(value).toLowerCase();
+    const cssClassByStatus = {
+      paid: "status-active",
+      overdue: "status-inactive",
+      partial: "status-pending",
+      unpaid: "status-neutral",
+    };
+    const label = normalizedValue.charAt(0).toUpperCase() + normalizedValue.slice(1);
+    const cssClass = cssClassByStatus[normalizedValue] || "status-neutral";
     return `<span class="status-badge ${cssClass}">${escapeHtml(label)}</span>`;
   }
 
@@ -373,6 +396,8 @@ const AdminApp = (() => {
     authFetch,
     clearAlert,
     escapeHtml,
+    feeStatusBadge,
+    formatCurrency,
     formatDate,
     getCurrentUser,
     getToken,

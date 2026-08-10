@@ -1,0 +1,543 @@
+let fees = [];
+let students = [];
+let courses = [];
+let currentUser;
+let feeModal;
+let paymentModal;
+let feeDetailsModal;
+let activeDetailsFeeId = null;
+
+document.addEventListener("DOMContentLoaded", () => {
+  currentUser = AdminApp.getCurrentUser();
+  feeModal = new bootstrap.Modal(document.querySelector("#feeModal"));
+  paymentModal = new bootstrap.Modal(document.querySelector("#paymentModal"));
+  feeDetailsModal = new bootstrap.Modal(document.querySelector("#feeDetailsModal"));
+
+  const addButton = document.querySelector("#open-add-fee");
+  if (currentUser?.role !== "admin") {
+    addButton.classList.add("d-none");
+  }
+
+  addButton.addEventListener("click", prepareAddFee);
+  document.querySelector("#fee-form").addEventListener("submit", saveFee);
+  document.querySelector("#payment-form").addEventListener("submit", recordPayment);
+  document.querySelector("#fee-search").addEventListener("input", renderFeeTable);
+  document.querySelector("#fee-status-filter").addEventListener("change", loadFees);
+  document.querySelector("#fee-course-filter").addEventListener("change", loadFees);
+  document.querySelector("#fees-table-body").addEventListener("click", handleFeeAction);
+  document.querySelector("#payment-history-body").addEventListener("click", handlePaymentAction);
+
+  loadFeesPage();
+});
+
+async function loadFeesPage() {
+  try {
+    await Promise.all([loadStudents(), loadCourses()]);
+    await Promise.all([loadFeeSummary(), loadFees()]);
+  } catch (error) {
+    AdminApp.showAlert("#fees-alert", error.message, "danger");
+  }
+}
+
+async function loadStudents() {
+  students = await AdminApp.authFetch("/students");
+  renderStudentOptions();
+}
+
+async function loadCourses() {
+  courses = await AdminApp.authFetch("/courses");
+  renderCourseFilter();
+}
+
+async function loadFeeSummary() {
+  const summary = await AdminApp.authFetch("/fees/summary");
+  document.querySelector("#summary-assigned").textContent = AdminApp.formatCurrency(summary.total_assigned);
+  document.querySelector("#summary-collected").textContent = AdminApp.formatCurrency(summary.total_collected);
+  document.querySelector("#summary-pending").textContent = AdminApp.formatCurrency(summary.total_pending);
+  document.querySelector("#summary-overdue").textContent = summary.overdue_count;
+}
+
+async function loadFees() {
+  const tableBody = document.querySelector("#fees-table-body");
+  tableBody.innerHTML = `
+    <tr>
+      <td colspan="8" class="text-center text-muted py-4">Loading...</td>
+    </tr>
+  `;
+
+  const params = new URLSearchParams();
+  const statusFilter = document.querySelector("#fee-status-filter").value;
+  const courseFilter = document.querySelector("#fee-course-filter").value;
+
+  if (statusFilter) {
+    params.set("status", statusFilter);
+  }
+
+  if (courseFilter) {
+    params.set("course_id", courseFilter);
+  }
+
+  const query = params.toString();
+  fees = await AdminApp.authFetch(query ? `/fees?${query}` : "/fees");
+  renderFeeTable();
+}
+
+function renderStudentOptions(selectedStudentId = null) {
+  const select = document.querySelector("#fee-student");
+  const selectedValue = selectedStudentId === null || selectedStudentId === undefined
+    ? ""
+    : String(selectedStudentId);
+
+  if (students.length === 0) {
+    select.innerHTML = '<option value="">No students found</option>';
+    return;
+  }
+
+  select.innerHTML = `
+    <option value="">Select student</option>
+    ${students.map((student) => {
+      const label = `${student.first_name} ${student.last_name} (${student.student_code})`;
+      return `
+        <option value="${student.id}" ${String(student.id) === selectedValue ? "selected" : ""}>
+          ${AdminApp.escapeHtml(label)}
+        </option>
+      `;
+    }).join("")}
+  `;
+}
+
+function renderCourseFilter() {
+  const select = document.querySelector("#fee-course-filter");
+  select.innerHTML = `
+    <option value="">All courses</option>
+    ${courses.map((course) => `
+      <option value="${course.id}">
+        ${AdminApp.escapeHtml(course.name)} (${AdminApp.escapeHtml(course.code)})
+      </option>
+    `).join("")}
+  `;
+}
+
+function renderFeeTable() {
+  const tableBody = document.querySelector("#fees-table-body");
+  const searchTerm = document.querySelector("#fee-search").value.trim().toLowerCase();
+  const studentById = new Map(students.map((student) => [student.id, student]));
+
+  const filteredFees = fees.filter((fee) => {
+    const student = studentById.get(fee.student_id);
+    const studentName = student ? `${student.first_name} ${student.last_name}` : "";
+    const searchable = [
+      studentName,
+      student?.student_code,
+      student?.email,
+      fee.title,
+      fee.description,
+    ].join(" ").toLowerCase();
+
+    return searchable.includes(searchTerm);
+  });
+
+  if (filteredFees.length === 0) {
+    const message = fees.length === 0 ? "No fee records found." : "No matching fee records found.";
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="8" class="text-center text-muted py-4">${message}</td>
+      </tr>
+    `;
+    return;
+  }
+
+  tableBody.innerHTML = filteredFees.map((fee) => {
+    const student = studentById.get(fee.student_id);
+    const studentName = student
+      ? `${student.first_name} ${student.last_name}`
+      : `Student #${fee.student_id}`;
+    const balance = Number(fee.balance || 0);
+    const canRecordPayment = balance > 0;
+    const adminActions = currentUser?.role === "admin"
+      ? `
+          <button class="btn btn-sm btn-outline-primary btn-icon" type="button" data-action="edit" data-id="${fee.id}" aria-label="Edit fee">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button class="btn btn-sm btn-outline-danger btn-icon" type="button" data-action="delete" data-id="${fee.id}" aria-label="Delete fee">
+            <i class="bi bi-trash"></i>
+          </button>
+        `
+      : "";
+    const paymentButton = canRecordPayment
+      ? `
+          <button class="btn btn-sm btn-outline-success btn-icon" type="button" data-action="pay" data-id="${fee.id}" aria-label="Record payment">
+            <i class="bi bi-cash-coin"></i>
+          </button>
+        `
+      : "";
+
+    return `
+      <tr>
+        <td>
+          <div class="fw-semibold">${AdminApp.escapeHtml(studentName)}</div>
+          <div class="small muted-cell">${AdminApp.escapeHtml(student?.student_code || "")}</div>
+        </td>
+        <td>
+          <div class="fw-semibold">${AdminApp.escapeHtml(fee.title)}</div>
+          <div class="small muted-cell">${AdminApp.escapeHtml(fee.description || "")}</div>
+        </td>
+        <td class="money-cell">${AdminApp.formatCurrency(fee.total_amount)}</td>
+        <td class="money-cell">${AdminApp.formatCurrency(fee.paid_amount)}</td>
+        <td class="money-cell ${balance > 0 ? "balance-due" : "balance-paid"}">${AdminApp.formatCurrency(fee.balance)}</td>
+        <td>${AdminApp.escapeHtml(fee.due_date)}</td>
+        <td>${AdminApp.feeStatusBadge(fee.status)}</td>
+        <td class="text-end">
+          <span class="table-actions wide-actions">
+            <button class="btn btn-sm btn-outline-secondary btn-icon" type="button" data-action="details" data-id="${fee.id}" aria-label="View fee details">
+              <i class="bi bi-receipt"></i>
+            </button>
+            ${paymentButton}
+            ${adminActions}
+          </span>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function prepareAddFee() {
+  document.querySelector("#fee-form").reset();
+  document.querySelector("#fee-id").value = "";
+  document.querySelector("#feeModalTitle").textContent = "Assign Fee";
+  document.querySelector("#fee-student-field").classList.remove("d-none");
+  document.querySelector("#fee-student").required = true;
+  renderStudentOptions();
+  AdminApp.clearAlert("#fee-form-alert");
+}
+
+function prepareEditFee(feeId) {
+  const fee = fees.find((item) => item.id === feeId);
+  if (!fee) {
+    AdminApp.showAlert("#fees-alert", "Fee record not found.", "danger");
+    return;
+  }
+
+  document.querySelector("#fee-form").reset();
+  document.querySelector("#fee-id").value = fee.id;
+  document.querySelector("#feeModalTitle").textContent = "Edit Fee";
+  document.querySelector("#fee-student-field").classList.add("d-none");
+  document.querySelector("#fee-student").required = false;
+  document.querySelector("#fee-title").value = fee.title;
+  document.querySelector("#fee-description").value = fee.description || "";
+  document.querySelector("#fee-total-amount").value = fee.total_amount;
+  document.querySelector("#fee-due-date").value = fee.due_date;
+  AdminApp.clearAlert("#fee-form-alert");
+  feeModal.show();
+}
+
+async function saveFee(event) {
+  event.preventDefault();
+
+  const saveButton = document.querySelector("#save-fee");
+  const feeId = document.querySelector("#fee-id").value;
+  const payload = {
+    title: document.querySelector("#fee-title").value.trim(),
+    description: document.querySelector("#fee-description").value.trim() || null,
+    total_amount: document.querySelector("#fee-total-amount").value,
+    due_date: document.querySelector("#fee-due-date").value,
+  };
+
+  if (!feeId) {
+    payload.student_id = Number(document.querySelector("#fee-student").value);
+  }
+
+  AdminApp.clearAlert("#fee-form-alert");
+  AdminApp.setButtonLoading(saveButton, true);
+
+  try {
+    if (feeId) {
+      await AdminApp.authFetch(`/fees/${feeId}`, {
+        method: "PUT",
+        body: payload,
+      });
+      AdminApp.showAlert("#fees-alert", "Fee record updated successfully.", "success");
+    } else {
+      await AdminApp.authFetch("/fees", {
+        method: "POST",
+        body: payload,
+      });
+      AdminApp.showAlert("#fees-alert", "Fee assigned successfully.", "success");
+    }
+
+    feeModal.hide();
+    document.querySelector("#fee-form").reset();
+    await refreshFeesAndSummary();
+  } catch (error) {
+    AdminApp.showAlert("#fee-form-alert", error.message, "danger");
+  } finally {
+    AdminApp.setButtonLoading(saveButton, false);
+  }
+}
+
+async function handleFeeAction(event) {
+  const button = event.target.closest("button[data-action]");
+  if (!button) {
+    return;
+  }
+
+  const feeId = Number(button.dataset.id);
+
+  if (button.dataset.action === "details") {
+    showFeeDetails(feeId);
+    return;
+  }
+
+  if (button.dataset.action === "pay") {
+    openPaymentModal(feeId);
+    return;
+  }
+
+  if (button.dataset.action === "edit") {
+    prepareEditFee(feeId);
+    return;
+  }
+
+  if (!window.confirm("Are you sure you want to delete this fee record?")) {
+    return;
+  }
+
+  button.disabled = true;
+  try {
+    await AdminApp.authFetch(`/fees/${feeId}`, { method: "DELETE" });
+    AdminApp.showAlert("#fees-alert", "Fee record deleted successfully.", "success");
+    await refreshFeesAndSummary();
+  } catch (error) {
+    const message = error.status === 409 && error.message.includes("payments")
+      ? "Cannot delete this fee because payments have already been recorded."
+      : error.message;
+    AdminApp.showAlert("#fees-alert", message, "danger");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function openPaymentModal(feeId) {
+  const fee = fees.find((item) => item.id === feeId);
+  if (!fee) {
+    AdminApp.showAlert("#fees-alert", "Fee record not found.", "danger");
+    return;
+  }
+
+  const student = students.find((item) => item.id === fee.student_id);
+  const studentName = student ? `${student.first_name} ${student.last_name}` : `Student #${fee.student_id}`;
+
+  document.querySelector("#payment-form").reset();
+  document.querySelector("#payment-fee-id").value = fee.id;
+  document.querySelector("#payment-date").value = getTodayDateString();
+  document.querySelector("#payment-amount").max = fee.balance;
+  document.querySelector("#payment-fee-summary").innerHTML = `
+    <div>
+      <span class="mini-label">Student</span>
+      <strong>${AdminApp.escapeHtml(studentName)}</strong>
+    </div>
+    <div>
+      <span class="mini-label">Fee</span>
+      <strong>${AdminApp.escapeHtml(fee.title)}</strong>
+    </div>
+    <div>
+      <span class="mini-label">Paid</span>
+      <strong>${AdminApp.formatCurrency(fee.paid_amount)}</strong>
+    </div>
+    <div>
+      <span class="mini-label">Remaining</span>
+      <strong>${AdminApp.formatCurrency(fee.balance)}</strong>
+    </div>
+  `;
+  AdminApp.clearAlert("#payment-form-alert");
+  paymentModal.show();
+}
+
+async function recordPayment(event) {
+  event.preventDefault();
+
+  const saveButton = document.querySelector("#save-payment");
+  const feeId = Number(document.querySelector("#payment-fee-id").value);
+  const fee = fees.find((item) => item.id === feeId);
+  const amountValue = document.querySelector("#payment-amount").value;
+  const amount = Number(amountValue);
+  const balance = Number(fee?.balance || 0);
+
+  AdminApp.clearAlert("#payment-form-alert");
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    AdminApp.showAlert("#payment-form-alert", "Payment amount must be greater than zero.", "warning");
+    return;
+  }
+
+  if (amount > balance) {
+    AdminApp.showAlert("#payment-form-alert", "Payment amount cannot exceed remaining balance.", "warning");
+    return;
+  }
+
+  const payload = {
+    amount: amountValue,
+    payment_date: document.querySelector("#payment-date").value,
+    payment_method: document.querySelector("#payment-method").value,
+    reference_number: document.querySelector("#payment-reference").value.trim() || null,
+    notes: document.querySelector("#payment-notes").value.trim() || null,
+  };
+
+  AdminApp.setButtonLoading(saveButton, true, "Recording...");
+
+  try {
+    await AdminApp.authFetch(`/fees/${feeId}/payments`, {
+      method: "POST",
+      body: payload,
+    });
+    paymentModal.hide();
+    document.querySelector("#payment-form").reset();
+    AdminApp.showAlert("#fees-alert", "Payment recorded successfully.", "success");
+    await refreshFeesAndSummary();
+  } catch (error) {
+    AdminApp.showAlert("#payment-form-alert", error.message, "danger");
+  } finally {
+    AdminApp.setButtonLoading(saveButton, false);
+  }
+}
+
+async function showFeeDetails(feeId) {
+  activeDetailsFeeId = feeId;
+  const summary = document.querySelector("#fee-details-summary");
+  const tableBody = document.querySelector("#payment-history-body");
+
+  summary.innerHTML = "";
+  tableBody.innerHTML = `
+    <tr>
+      <td colspan="7" class="text-center text-muted py-4">Loading...</td>
+    </tr>
+  `;
+  AdminApp.clearAlert("#fee-details-alert");
+  feeDetailsModal.show();
+
+  try {
+    const detail = await AdminApp.authFetch(`/fees/${feeId}`);
+    renderFeeDetails(detail);
+  } catch (error) {
+    AdminApp.showAlert("#fee-details-alert", error.message, "danger");
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="7" class="text-center text-muted py-4">Unable to load payment history.</td>
+      </tr>
+    `;
+  }
+}
+
+function renderFeeDetails(detail) {
+  const student = students.find((item) => item.id === detail.student_id);
+  const studentName = student ? `${student.first_name} ${student.last_name}` : `Student #${detail.student_id}`;
+
+  document.querySelector("#feeDetailsModalTitle").textContent = `Fee Details - ${detail.title}`;
+  document.querySelector("#fee-details-summary").innerHTML = `
+    <div>
+      <span class="mini-label">Student</span>
+      <strong>${AdminApp.escapeHtml(studentName)}</strong>
+    </div>
+    <div>
+      <span class="mini-label">Total</span>
+      <strong>${AdminApp.formatCurrency(detail.total_amount)}</strong>
+    </div>
+    <div>
+      <span class="mini-label">Paid</span>
+      <strong>${AdminApp.formatCurrency(detail.paid_amount)}</strong>
+    </div>
+    <div>
+      <span class="mini-label">Balance</span>
+      <strong>${AdminApp.formatCurrency(detail.balance)}</strong>
+    </div>
+    <div>
+      <span class="mini-label">Due Date</span>
+      <strong>${AdminApp.escapeHtml(detail.due_date)}</strong>
+    </div>
+    <div>
+      <span class="mini-label">Status</span>
+      <strong>${AdminApp.escapeHtml(detail.status)}</strong>
+    </div>
+  `;
+
+  renderPaymentHistory(detail.payments || []);
+}
+
+function renderPaymentHistory(payments) {
+  const tableBody = document.querySelector("#payment-history-body");
+
+  if (payments.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="7" class="text-center text-muted py-4">No payments recorded yet.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  tableBody.innerHTML = payments.map((payment) => {
+    const deleteButton = currentUser?.role === "admin"
+      ? `
+          <button class="btn btn-sm btn-outline-danger btn-icon" type="button" data-action="delete-payment" data-id="${payment.id}" aria-label="Delete payment">
+            <i class="bi bi-trash"></i>
+          </button>
+        `
+      : "";
+    return `
+      <tr>
+        <td>${AdminApp.escapeHtml(payment.payment_date)}</td>
+        <td class="money-cell">${AdminApp.formatCurrency(payment.amount)}</td>
+        <td>${AdminApp.escapeHtml(formatPaymentMethod(payment.payment_method))}</td>
+        <td>${AdminApp.escapeHtml(payment.reference_number || "")}</td>
+        <td>${AdminApp.escapeHtml(`User #${payment.recorded_by}`)}</td>
+        <td>${AdminApp.escapeHtml(payment.notes || "")}</td>
+        <td class="text-end">${deleteButton}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+async function handlePaymentAction(event) {
+  const button = event.target.closest("button[data-action='delete-payment']");
+  if (!button) {
+    return;
+  }
+
+  if (!window.confirm("Are you sure you want to delete this payment?")) {
+    return;
+  }
+
+  button.disabled = true;
+  try {
+    await AdminApp.authFetch(`/payments/${button.dataset.id}`, { method: "DELETE" });
+    AdminApp.showAlert("#fee-details-alert", "Payment deleted successfully.", "success");
+    await refreshFeesAndSummary();
+    if (activeDetailsFeeId !== null) {
+      await showFeeDetails(activeDetailsFeeId);
+    }
+  } catch (error) {
+    AdminApp.showAlert("#fee-details-alert", error.message, "danger");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function refreshFeesAndSummary() {
+  await Promise.all([loadFeeSummary(), loadFees()]);
+}
+
+function formatPaymentMethod(value) {
+  const labels = {
+    cash: "Cash",
+    upi: "UPI",
+    card: "Card",
+    bank_transfer: "Bank Transfer",
+  };
+  return labels[value] || value;
+}
+
+function getTodayDateString() {
+  const now = new Date();
+  const timezoneOffset = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - timezoneOffset).toISOString().slice(0, 10);
+}

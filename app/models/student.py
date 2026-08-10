@@ -10,6 +10,7 @@ from app.database.base import Base
 
 if TYPE_CHECKING:
     from app.models.course import Course
+    from app.models.student_fee import StudentFee
 
 
 class Student(Base):
@@ -44,3 +45,7 @@ class Student(Base):
     )
 
     course: Mapped[Course | None] = relationship(back_populates="students")
+    fees: Mapped[list[StudentFee]] = relationship(
+        back_populates="student",
+        passive_deletes=True,
+    )
