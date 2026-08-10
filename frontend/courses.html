@@ -23,15 +23,35 @@
                 <p>Course catalog and availability</p>
               </div>
               <div class="toolbar">
-                <div class="input-icon">
-                  <i class="bi bi-search"></i>
-                  <input id="course-search" class="form-control" type="search" placeholder="Search courses" aria-label="Search courses">
-                </div>
                 <button id="open-add-course" class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#courseModal">
                   <i class="bi bi-plus-lg"></i>
                   Add Course
                 </button>
               </div>
+            </div>
+
+            <div class="filter-row mb-3">
+              <div class="input-icon">
+                <i class="bi bi-search"></i>
+                <input id="course-search" class="form-control" type="search" placeholder="Search courses" aria-label="Search courses">
+              </div>
+              <select id="course-active-filter" class="form-select" aria-label="Filter by course status">
+                <option value="">All statuses</option>
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
+              </select>
+              <select id="course-sort" class="form-select" aria-label="Sort courses">
+                <option value="created_at:desc">Newest</option>
+                <option value="created_at:asc">Oldest</option>
+                <option value="name:asc">Name A-Z</option>
+                <option value="name:desc">Name Z-A</option>
+                <option value="code:asc">Code A-Z</option>
+              </select>
+              <select id="course-page-size" class="form-select" aria-label="Rows per page">
+                <option value="10">10 rows</option>
+                <option value="25">25 rows</option>
+                <option value="50">50 rows</option>
+              </select>
             </div>
 
             <div class="table-responsive">
@@ -53,6 +73,7 @@
                 </tbody>
               </table>
             </div>
+            <div id="courses-pagination"></div>
           </section>
         </main>
       </div>

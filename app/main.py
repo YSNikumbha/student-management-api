@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from app.routers.attendance import router as attendance_router
 from app.routers.auth import router as auth_router
 from app.routers.courses import router as courses_router
+from app.routers.dashboard import router as dashboard_router
 from app.routers.fees import router as fees_router
 from app.routers.payments import router as payments_router
 from app.routers.students import router as students_router
@@ -25,6 +26,7 @@ app.include_router(courses_router)
 app.include_router(attendance_router)
 app.include_router(fees_router)
 app.include_router(payments_router)
+app.include_router(dashboard_router)
 app.mount("/admin/assets", StaticFiles(directory=FRONTEND_DIR), name="admin-assets")
 
 

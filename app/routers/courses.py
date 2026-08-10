@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -6,6 +8,7 @@ from app.database.database import get_db
 from app.dependencies.auth import get_current_user, require_admin
 from app.models.course import Course
 from app.schemas.course import CourseCreate, CourseResponse, CourseUpdate
+from app.schemas.pagination import PaginatedResponse, build_paginated_response
 from app.services import course_service
 
 
@@ -47,11 +50,28 @@ def create_course(
 
 @router.get(
     "",
-    response_model=list[CourseResponse],
+    response_model=PaginatedResponse[CourseResponse],
     dependencies=[Depends(get_current_user)],
 )
-def get_courses(db: Session = Depends(get_db)) -> list[Course]:
-    return course_service.get_courses(db)
+def get_courses(
+    search: str | None = None,
+    is_active: bool | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
+    sort_by: Literal["name", "code", "created_at"] = "created_at",
+    sort_order: Literal["asc", "desc"] = "desc",
+    db: Session = Depends(get_db),
+) -> dict[str, list[Course] | int]:
+    courses, total_items = course_service.get_courses_paginated(
+        db,
+        search=search,
+        is_active=is_active,
+        page=page,
+        page_size=page_size,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+    return build_paginated_response(courses, page, page_size, total_items)
 
 
 @router.get(

@@ -87,6 +87,26 @@
               <select id="fee-course-filter" class="form-select" aria-label="Filter by course">
                 <option value="">All courses</option>
               </select>
+              <div>
+                <label for="fee-due-after-filter" class="form-label">Due From</label>
+                <input id="fee-due-after-filter" class="form-control" type="date">
+              </div>
+              <div>
+                <label for="fee-due-before-filter" class="form-label">Due To</label>
+                <input id="fee-due-before-filter" class="form-control" type="date">
+              </div>
+              <select id="fee-sort" class="form-select" aria-label="Sort fees">
+                <option value="due_date:asc">Due Date Asc</option>
+                <option value="due_date:desc">Due Date Desc</option>
+                <option value="created_at:desc">Newest</option>
+                <option value="total_amount:desc">Amount High-Low</option>
+                <option value="total_amount:asc">Amount Low-High</option>
+              </select>
+              <select id="fee-page-size" class="form-select" aria-label="Rows per page">
+                <option value="10">10 rows</option>
+                <option value="25">25 rows</option>
+                <option value="50">50 rows</option>
+              </select>
             </div>
 
             <div class="table-responsive">
@@ -110,6 +130,7 @@
                 </tbody>
               </table>
             </div>
+            <div id="fees-pagination"></div>
           </section>
         </main>
       </div>

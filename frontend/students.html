@@ -23,15 +23,38 @@
                 <p>Student records and course assignment</p>
               </div>
               <div class="toolbar">
-                <div class="input-icon">
-                  <i class="bi bi-search"></i>
-                  <input id="student-search" class="form-control" type="search" placeholder="Search students" aria-label="Search students">
-                </div>
                 <button id="open-add-student" class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#studentModal">
                   <i class="bi bi-plus-lg"></i>
                   Add Student
                 </button>
               </div>
+            </div>
+
+            <div class="filter-row mb-3">
+              <div class="input-icon">
+                <i class="bi bi-search"></i>
+                <input id="student-search" class="form-control" type="search" placeholder="Search students" aria-label="Search students">
+              </div>
+              <select id="student-course-filter" class="form-select" aria-label="Filter by course">
+                <option value="">All courses</option>
+              </select>
+              <select id="student-status-filter" class="form-select" aria-label="Filter by status">
+                <option value="">All statuses</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+              <select id="student-sort" class="form-select" aria-label="Sort students">
+                <option value="created_at:desc">Newest</option>
+                <option value="created_at:asc">Oldest</option>
+                <option value="first_name:asc">Name A-Z</option>
+                <option value="first_name:desc">Name Z-A</option>
+                <option value="student_code:asc">Code A-Z</option>
+              </select>
+              <select id="student-page-size" class="form-select" aria-label="Rows per page">
+                <option value="10">10 rows</option>
+                <option value="25">25 rows</option>
+                <option value="50">50 rows</option>
+              </select>
             </div>
 
             <div class="table-responsive">
@@ -55,6 +78,7 @@
                 </tbody>
               </table>
             </div>
+            <div id="students-pagination"></div>
           </section>
         </main>
       </div>

@@ -6,6 +6,18 @@ let feeModal;
 let paymentModal;
 let feeDetailsModal;
 let activeDetailsFeeId = null;
+let feePageData = null;
+let feeState = {
+  page: 1,
+  pageSize: 10,
+  search: "",
+  status: "",
+  courseId: "",
+  dueAfter: "",
+  dueBefore: "",
+  sortBy: "due_date",
+  sortOrder: "asc",
+};
 
 document.addEventListener("DOMContentLoaded", () => {
   currentUser = AdminApp.getCurrentUser();
@@ -21,9 +33,43 @@ document.addEventListener("DOMContentLoaded", () => {
   addButton.addEventListener("click", prepareAddFee);
   document.querySelector("#fee-form").addEventListener("submit", saveFee);
   document.querySelector("#payment-form").addEventListener("submit", recordPayment);
-  document.querySelector("#fee-search").addEventListener("input", renderFeeTable);
-  document.querySelector("#fee-status-filter").addEventListener("change", loadFees);
-  document.querySelector("#fee-course-filter").addEventListener("change", loadFees);
+  document.querySelector("#fee-search").addEventListener("input", AdminApp.debounce(() => {
+    feeState.search = document.querySelector("#fee-search").value.trim();
+    feeState.page = 1;
+    loadFees();
+  }));
+  document.querySelector("#fee-status-filter").addEventListener("change", () => {
+    feeState.status = document.querySelector("#fee-status-filter").value;
+    feeState.page = 1;
+    loadFees();
+  });
+  document.querySelector("#fee-course-filter").addEventListener("change", () => {
+    feeState.courseId = document.querySelector("#fee-course-filter").value;
+    feeState.page = 1;
+    loadFees();
+  });
+  document.querySelector("#fee-due-after-filter").addEventListener("change", () => {
+    feeState.dueAfter = document.querySelector("#fee-due-after-filter").value;
+    feeState.page = 1;
+    loadFees();
+  });
+  document.querySelector("#fee-due-before-filter").addEventListener("change", () => {
+    feeState.dueBefore = document.querySelector("#fee-due-before-filter").value;
+    feeState.page = 1;
+    loadFees();
+  });
+  document.querySelector("#fee-sort").addEventListener("change", () => {
+    const [sortBy, sortOrder] = document.querySelector("#fee-sort").value.split(":");
+    feeState.sortBy = sortBy;
+    feeState.sortOrder = sortOrder;
+    feeState.page = 1;
+    loadFees();
+  });
+  document.querySelector("#fee-page-size").addEventListener("change", () => {
+    feeState.pageSize = Number(document.querySelector("#fee-page-size").value);
+    feeState.page = 1;
+    loadFees();
+  });
   document.querySelector("#fees-table-body").addEventListener("click", handleFeeAction);
   document.querySelector("#payment-history-body").addEventListener("click", handlePaymentAction);
 
@@ -40,12 +86,14 @@ async function loadFeesPage() {
 }
 
 async function loadStudents() {
-  students = await AdminApp.authFetch("/students");
+  const response = await AdminApp.authFetch("/students?page_size=100&sort_by=first_name&sort_order=asc");
+  students = AdminApp.getItems(response);
   renderStudentOptions();
 }
 
 async function loadCourses() {
-  courses = await AdminApp.authFetch("/courses");
+  const response = await AdminApp.authFetch("/courses?page_size=100&sort_by=name&sort_order=asc");
+  courses = AdminApp.getItems(response);
   renderCourseFilter();
 }
 
@@ -65,21 +113,22 @@ async function loadFees() {
     </tr>
   `;
 
-  const params = new URLSearchParams();
-  const statusFilter = document.querySelector("#fee-status-filter").value;
-  const courseFilter = document.querySelector("#fee-course-filter").value;
-
-  if (statusFilter) {
-    params.set("status", statusFilter);
-  }
-
-  if (courseFilter) {
-    params.set("course_id", courseFilter);
-  }
-
-  const query = params.toString();
-  fees = await AdminApp.authFetch(query ? `/fees?${query}` : "/fees");
+  const query = AdminApp.buildQueryString({
+    search: feeState.search,
+    status: feeState.status,
+    course_id: feeState.courseId,
+    due_after: feeState.dueAfter,
+    due_before: feeState.dueBefore,
+    page: feeState.page,
+    page_size: feeState.pageSize,
+    sort_by: feeState.sortBy,
+    sort_order: feeState.sortOrder,
+  });
+  const response = await AdminApp.authFetch(`/fees${query}`);
+  fees = AdminApp.getItems(response);
+  feePageData = response;
   renderFeeTable();
+  renderFeePagination();
 }
 
 function renderStudentOptions(selectedStudentId = null) {
@@ -120,25 +169,17 @@ function renderCourseFilter() {
 
 function renderFeeTable() {
   const tableBody = document.querySelector("#fees-table-body");
-  const searchTerm = document.querySelector("#fee-search").value.trim().toLowerCase();
   const studentById = new Map(students.map((student) => [student.id, student]));
 
-  const filteredFees = fees.filter((fee) => {
-    const student = studentById.get(fee.student_id);
-    const studentName = student ? `${student.first_name} ${student.last_name}` : "";
-    const searchable = [
-      studentName,
-      student?.student_code,
-      student?.email,
-      fee.title,
-      fee.description,
-    ].join(" ").toLowerCase();
-
-    return searchable.includes(searchTerm);
-  });
-
-  if (filteredFees.length === 0) {
-    const message = fees.length === 0 ? "No fee records found." : "No matching fee records found.";
+  if (fees.length === 0) {
+    const hasFilters = Boolean(
+      feeState.search ||
+      feeState.status ||
+      feeState.courseId ||
+      feeState.dueAfter ||
+      feeState.dueBefore
+    );
+    const message = hasFilters ? "No fee records match the selected filters." : "No fee records found.";
     tableBody.innerHTML = `
       <tr>
         <td colspan="8" class="text-center text-muted py-4">${message}</td>
@@ -147,11 +188,10 @@ function renderFeeTable() {
     return;
   }
 
-  tableBody.innerHTML = filteredFees.map((fee) => {
+  tableBody.innerHTML = fees.map((fee) => {
     const student = studentById.get(fee.student_id);
-    const studentName = student
-      ? `${student.first_name} ${student.last_name}`
-      : `Student #${fee.student_id}`;
+    const studentName = fee.student_name || (student ? `${student.first_name} ${student.last_name}` : `Student #${fee.student_id}`);
+    const studentCode = fee.student_code || student?.student_code || "";
     const balance = Number(fee.balance || 0);
     const canRecordPayment = balance > 0;
     const adminActions = currentUser?.role === "admin"
@@ -176,7 +216,7 @@ function renderFeeTable() {
       <tr>
         <td>
           <div class="fw-semibold">${AdminApp.escapeHtml(studentName)}</div>
-          <div class="small muted-cell">${AdminApp.escapeHtml(student?.student_code || "")}</div>
+          <div class="small muted-cell">${AdminApp.escapeHtml(studentCode)}</div>
         </td>
         <td>
           <div class="fw-semibold">${AdminApp.escapeHtml(fee.title)}</div>
@@ -199,6 +239,13 @@ function renderFeeTable() {
       </tr>
     `;
   }).join("");
+}
+
+function renderFeePagination() {
+  AdminApp.renderPagination("#fees-pagination", feePageData, (page) => {
+    feeState.page = page;
+    loadFees();
+  });
 }
 
 function prepareAddFee() {
@@ -262,6 +309,7 @@ async function saveFee(event) {
         method: "POST",
         body: payload,
       });
+      feeState.page = 1;
       AdminApp.showAlert("#fees-alert", "Fee assigned successfully.", "success");
     }
 
@@ -325,7 +373,7 @@ function openPaymentModal(feeId) {
   }
 
   const student = students.find((item) => item.id === fee.student_id);
-  const studentName = student ? `${student.first_name} ${student.last_name}` : `Student #${fee.student_id}`;
+  const studentName = fee.student_name || (student ? `${student.first_name} ${student.last_name}` : `Student #${fee.student_id}`);
 
   document.querySelector("#payment-form").reset();
   document.querySelector("#payment-fee-id").value = fee.id;
@@ -430,7 +478,7 @@ async function showFeeDetails(feeId) {
 
 function renderFeeDetails(detail) {
   const student = students.find((item) => item.id === detail.student_id);
-  const studentName = student ? `${student.first_name} ${student.last_name}` : `Student #${detail.student_id}`;
+  const studentName = detail.student_name || (student ? `${student.first_name} ${student.last_name}` : `Student #${detail.student_id}`);
 
   document.querySelector("#feeDetailsModalTitle").textContent = `Fee Details - ${detail.title}`;
   document.querySelector("#fee-details-summary").innerHTML = `

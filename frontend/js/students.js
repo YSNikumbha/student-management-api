@@ -4,6 +4,16 @@ let studentModal;
 let studentAttendanceModal;
 let studentFeesModal;
 let currentUser;
+let studentPageData = null;
+let studentState = {
+  page: 1,
+  pageSize: 10,
+  search: "",
+  courseId: "",
+  status: "",
+  sortBy: "created_at",
+  sortOrder: "desc",
+};
 
 document.addEventListener("DOMContentLoaded", () => {
   studentModal = new bootstrap.Modal(document.querySelector("#studentModal"));
@@ -18,7 +28,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
   addButton.addEventListener("click", prepareAddStudent);
   document.querySelector("#student-form").addEventListener("submit", saveStudent);
-  document.querySelector("#student-search").addEventListener("input", renderStudents);
+  document.querySelector("#student-search").addEventListener("input", AdminApp.debounce(() => {
+    studentState.search = document.querySelector("#student-search").value.trim();
+    studentState.page = 1;
+    loadStudents();
+  }));
+  document.querySelector("#student-course-filter").addEventListener("change", () => {
+    studentState.courseId = document.querySelector("#student-course-filter").value;
+    studentState.page = 1;
+    loadStudents();
+  });
+  document.querySelector("#student-status-filter").addEventListener("change", () => {
+    studentState.status = document.querySelector("#student-status-filter").value;
+    studentState.page = 1;
+    loadStudents();
+  });
+  document.querySelector("#student-sort").addEventListener("change", () => {
+    const [sortBy, sortOrder] = document.querySelector("#student-sort").value.split(":");
+    studentState.sortBy = sortBy;
+    studentState.sortOrder = sortOrder;
+    studentState.page = 1;
+    loadStudents();
+  });
+  document.querySelector("#student-page-size").addEventListener("change", () => {
+    studentState.pageSize = Number(document.querySelector("#student-page-size").value);
+    studentState.page = 1;
+    loadStudents();
+  });
   document.querySelector("#students-table-body").addEventListener("click", handleStudentAction);
 
   loadStudentsPage();
@@ -34,8 +70,10 @@ async function loadStudentsPage() {
 }
 
 async function loadCoursesForStudents() {
-  courses = await AdminApp.authFetch("/courses");
+  const response = await AdminApp.authFetch("/courses?page_size=100&sort_by=name&sort_order=asc");
+  courses = AdminApp.getItems(response);
   renderCourseOptions();
+  renderCourseFilter();
 }
 
 async function loadStudents() {
@@ -46,8 +84,20 @@ async function loadStudents() {
     </tr>
   `;
 
-  students = await AdminApp.authFetch("/students");
+  const query = AdminApp.buildQueryString({
+    search: studentState.search,
+    course_id: studentState.courseId,
+    status: studentState.status,
+    page: studentState.page,
+    page_size: studentState.pageSize,
+    sort_by: studentState.sortBy,
+    sort_order: studentState.sortOrder,
+  });
+  const response = await AdminApp.authFetch(`/students${query}`);
+  students = AdminApp.getItems(response);
+  studentPageData = response;
   renderStudents();
+  renderStudentPagination();
 }
 
 function renderCourseOptions(selectedCourseId = null) {
@@ -66,32 +116,32 @@ function renderCourseOptions(selectedCourseId = null) {
   `;
 }
 
+function renderCourseFilter() {
+  const select = document.querySelector("#student-course-filter");
+  select.innerHTML = `
+    <option value="">All courses</option>
+    ${courses.map((course) => `
+      <option value="${course.id}">
+        ${AdminApp.escapeHtml(course.name)} (${AdminApp.escapeHtml(course.code)})
+      </option>
+    `).join("")}
+  `;
+}
+
 function renderStudents() {
   const tableBody = document.querySelector("#students-table-body");
-  const searchTerm = document.querySelector("#student-search").value.trim().toLowerCase();
   const courseById = new Map(courses.map((course) => [course.id, course]));
 
-  const filteredStudents = students.filter((student) => {
-    const searchable = [
-      student.student_code,
-      student.first_name,
-      student.last_name,
-      student.email,
-    ].join(" ").toLowerCase();
-
-    return searchable.includes(searchTerm);
-  });
-
-  if (filteredStudents.length === 0) {
+  if (students.length === 0) {
     tableBody.innerHTML = `
       <tr>
-        <td colspan="8" class="text-center text-muted py-4">No students found.</td>
+        <td colspan="8" class="text-center text-muted py-4">No students match the selected filters.</td>
       </tr>
     `;
     return;
   }
 
-  tableBody.innerHTML = filteredStudents.map((student) => {
+  tableBody.innerHTML = students.map((student) => {
     const fullName = `${student.first_name} ${student.last_name}`;
     const course = courseById.get(student.course_id);
     const courseName = course ? course.name : "Not Assigned";
@@ -130,6 +180,13 @@ function renderStudents() {
       </tr>
     `;
   }).join("");
+}
+
+function renderStudentPagination() {
+  AdminApp.renderPagination("#students-pagination", studentPageData, (page) => {
+    studentState.page = page;
+    loadStudents();
+  });
 }
 
 function prepareAddStudent() {
@@ -200,6 +257,7 @@ async function saveStudent(event) {
         method: "POST",
         body: payload,
       });
+      studentState.page = 1;
       AdminApp.showAlert("#students-alert", "Student created successfully.", "success");
     }
 

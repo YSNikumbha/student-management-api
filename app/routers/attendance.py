@@ -18,6 +18,7 @@ from app.schemas.attendance import (
     CourseAttendanceStudent,
     StudentAttendanceSummary,
 )
+from app.schemas.pagination import PaginatedResponse, build_paginated_response
 from app.services import attendance_service, course_service, student_service
 
 
@@ -127,28 +128,37 @@ def bulk_mark_attendance(
     )
 
 
-@router.get("", response_model=list[AttendanceResponse])
+@router.get("", response_model=PaginatedResponse[AttendanceResponse])
 def get_attendance_records(
     attendance_date: date | None = Query(default=None, alias="date"),
+    start_date: date | None = None,
+    end_date: date | None = None,
     student_id: int | None = None,
     course_id: int | None = None,
     attendance_status: AttendanceStatus | None = Query(default=None, alias="status"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db),
     _current_user: User = Depends(get_current_user),
-) -> list[Attendance]:
+) -> dict[str, list[Attendance] | int]:
     if student_id is not None:
         _get_student_or_404(db, student_id)
 
     if course_id is not None:
         _get_course_or_404(db, course_id)
 
-    return attendance_service.get_attendance_records(
+    records, total_items = attendance_service.get_attendance_records_paginated(
         db,
         attendance_date=attendance_date,
+        start_date=start_date,
+        end_date=end_date,
         student_id=student_id,
         course_id=course_id,
         status=attendance_status.value if attendance_status else None,
+        page=page,
+        page_size=page_size,
     )
+    return build_paginated_response(records, page, page_size, total_items)
 
 
 @router.get(

@@ -3,114 +3,110 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 async function loadDashboard() {
-  const tableBody = document.querySelector("#recent-students-body");
-
   try {
-    const today = getTodayDateString();
-    const [students, courses, todayAttendance, feeSummary] = await Promise.all([
-      AdminApp.authFetch("/students"),
-      AdminApp.authFetch("/courses"),
-      AdminApp.authFetch(`/attendance?date=${today}`),
-      AdminApp.authFetch("/fees/summary"),
+    const [summary, activity] = await Promise.all([
+      AdminApp.authFetch("/dashboard/summary"),
+      AdminApp.authFetch("/dashboard/recent-activity"),
     ]);
 
-    const activeStudents = students.filter((student) => student.status === "active").length;
-    const activeCourses = courses.filter((course) => course.is_active === true).length;
-
-    document.querySelector("#total-students").textContent = students.length;
-    document.querySelector("#total-courses").textContent = courses.length;
-    document.querySelector("#active-students").textContent = activeStudents;
-    document.querySelector("#active-courses").textContent = activeCourses;
-
-    renderRecentStudents(students, tableBody);
-    renderTodayAttendance(todayAttendance, today);
-    renderFeeOverview(feeSummary);
+    renderSummary(summary);
+    renderRecentStudents(activity.recent_students);
+    renderRecentPayments(activity.recent_payments);
+    renderRecentAttendance(activity.recent_attendance);
   } catch (error) {
     AdminApp.showAlert("#dashboard-alert", error.message, "danger");
-    if (tableBody) {
-      tableBody.innerHTML = `
-        <tr>
-          <td colspan="5" class="text-center text-muted py-4">No students found.</td>
-        </tr>
-      `;
-    }
+    setRecentEmpty("#recent-students-body", 5, "No students found.");
+    setRecentEmpty("#recent-payments-body", 5, "No payments recorded yet.");
+    setRecentEmpty("#recent-attendance-body", 4, "No attendance records found.");
   }
 }
 
-function renderFeeOverview(summary) {
-  document.querySelector("#fees-assigned").textContent = AdminApp.formatCurrency(summary.total_assigned);
-  document.querySelector("#fees-collected").textContent = AdminApp.formatCurrency(summary.total_collected);
-  document.querySelector("#fees-pending").textContent = AdminApp.formatCurrency(summary.total_pending);
-  document.querySelector("#fees-overdue").textContent = summary.overdue_count;
+function renderSummary(summary) {
+  document.querySelector("#total-students").textContent = summary.students.total;
+  document.querySelector("#total-courses").textContent = summary.courses.total;
+  document.querySelector("#active-students").textContent = summary.students.active;
+  document.querySelector("#active-courses").textContent = summary.courses.active;
+  document.querySelector("#today-marked").textContent = summary.attendance_today.marked;
+  document.querySelector("#fees-collected").textContent = AdminApp.formatCurrency(summary.fees.total_collected);
+  document.querySelector("#fees-pending").textContent = AdminApp.formatCurrency(summary.fees.total_pending);
+  document.querySelector("#fees-overdue").textContent = summary.fees.overdue_count;
 }
 
-function getTodayDateString() {
-  const now = new Date();
-  const timezoneOffset = now.getTimezoneOffset() * 60000;
-  return new Date(now.getTime() - timezoneOffset).toISOString().slice(0, 10);
-}
+function renderRecentStudents(students) {
+  const tableBody = document.querySelector("#recent-students-body");
 
-function renderTodayAttendance(records, today) {
-  const dateLabel = document.querySelector("#attendance-date-label");
-  const emptyState = document.querySelector("#today-attendance-empty");
-  const summary = document.querySelector("#today-attendance-summary");
-
-  if (dateLabel) {
-    dateLabel.textContent = `Attendance for ${today}`;
-  }
-
-  const marked = records.length;
-  const present = records.filter((record) => record.status === "present").length;
-  const absent = records.filter((record) => record.status === "absent").length;
-  const late = records.filter((record) => record.status === "late").length;
-
-  document.querySelector("#today-marked").textContent = marked;
-  document.querySelector("#today-present").textContent = present;
-  document.querySelector("#today-absent").textContent = absent;
-  document.querySelector("#today-late").textContent = late;
-
-  if (marked === 0) {
-    emptyState?.classList.remove("d-none");
-    summary?.classList.add("d-none");
+  if (!students.length) {
+    setRecentEmpty(tableBody, 5, "No students found.");
     return;
   }
 
-  emptyState?.classList.add("d-none");
-  summary?.classList.remove("d-none");
+  tableBody.innerHTML = students.map((student) => `
+    <tr>
+      <td>${AdminApp.escapeHtml(student.student_code)}</td>
+      <td>${AdminApp.escapeHtml(student.name)}</td>
+      <td>${AdminApp.escapeHtml(student.email)}</td>
+      <td>${AdminApp.escapeHtml(student.course_id ?? "Not Assigned")}</td>
+      <td>${AdminApp.statusBadge(student.status)}</td>
+    </tr>
+  `).join("");
 }
 
-function renderRecentStudents(students, tableBody) {
-  if (!tableBody) {
+function renderRecentPayments(payments) {
+  const tableBody = document.querySelector("#recent-payments-body");
+
+  if (!payments.length) {
+    setRecentEmpty(tableBody, 5, "No payments recorded yet.");
     return;
   }
 
-  const recentStudents = [...students]
-    .sort((first, second) => second.id - first.id)
-    .slice(0, 5);
+  tableBody.innerHTML = payments.map((payment) => `
+    <tr>
+      <td>${AdminApp.escapeHtml(payment.student_name)}</td>
+      <td>${AdminApp.escapeHtml(payment.fee_title)}</td>
+      <td class="money-cell">${AdminApp.formatCurrency(payment.amount)}</td>
+      <td>${AdminApp.escapeHtml(payment.payment_date)}</td>
+      <td>${AdminApp.escapeHtml(formatPaymentMethod(payment.payment_method))}</td>
+    </tr>
+  `).join("");
+}
 
-  if (recentStudents.length === 0) {
-    tableBody.innerHTML = `
-      <tr>
-        <td colspan="5" class="text-center text-muted py-4">No students found.</td>
-      </tr>
-    `;
+function renderRecentAttendance(records) {
+  const tableBody = document.querySelector("#recent-attendance-body");
+
+  if (!records.length) {
+    setRecentEmpty(tableBody, 4, "No attendance records found.");
     return;
   }
 
-  tableBody.innerHTML = recentStudents.map((student) => {
-    const fullName = `${student.first_name} ${student.last_name}`;
-    const courseText = student.course_id === null || student.course_id === undefined
-      ? "Not Assigned"
-      : student.course_id;
+  tableBody.innerHTML = records.map((record) => `
+    <tr>
+      <td>${AdminApp.escapeHtml(record.date)}</td>
+      <td>${AdminApp.escapeHtml(record.student_name)}</td>
+      <td>${AdminApp.attendanceBadge(record.status)}</td>
+      <td>${AdminApp.escapeHtml(AdminApp.formatDate(record.updated_at))}</td>
+    </tr>
+  `).join("");
+}
 
-    return `
-      <tr>
-        <td>${AdminApp.escapeHtml(student.student_code)}</td>
-        <td>${AdminApp.escapeHtml(fullName)}</td>
-        <td>${AdminApp.escapeHtml(student.email)}</td>
-        <td>${AdminApp.escapeHtml(courseText)}</td>
-        <td>${AdminApp.statusBadge(student.status)}</td>
-      </tr>
-    `;
-  }).join("");
+function setRecentEmpty(target, colspan, message) {
+  const element = typeof target === "string" ? document.querySelector(target) : target;
+  if (!element) {
+    return;
+  }
+
+  element.innerHTML = `
+    <tr>
+      <td colspan="${colspan}" class="text-center text-muted py-4">${AdminApp.escapeHtml(message)}</td>
+    </tr>
+  `;
+}
+
+function formatPaymentMethod(value) {
+  const labels = {
+    cash: "Cash",
+    upi: "UPI",
+    card: "Card",
+    bank_transfer: "Bank Transfer",
+  };
+  return labels[value] || value;
 }

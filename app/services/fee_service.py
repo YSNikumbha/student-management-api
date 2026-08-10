@@ -1,12 +1,13 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, or_, select
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.payment import Payment
 from app.models.student import Student
 from app.models.student_fee import StudentFee
+from app.schemas.pagination import get_offset
 from app.schemas.student_fee import (
     FeeStatus,
     StudentFeeCreate,
@@ -25,13 +26,18 @@ def normalize_money(value: Decimal | int | float | str | None) -> Decimal:
 
 
 def get_fee_by_id(db: Session, fee_id: int) -> StudentFee | None:
-    statement = select(StudentFee).where(StudentFee.id == fee_id)
+    statement = (
+        select(StudentFee)
+        .options(selectinload(StudentFee.student))
+        .where(StudentFee.id == fee_id)
+    )
     return db.execute(statement).scalar_one_or_none()
 
 
 def get_student_fees(db: Session, student_id: int) -> list[StudentFee]:
     statement = (
         select(StudentFee)
+        .options(selectinload(StudentFee.student))
         .where(StudentFee.student_id == student_id)
         .order_by(StudentFee.due_date.desc(), StudentFee.id.desc())
     )
@@ -45,7 +51,7 @@ def get_all_fees(
     due_before: date | None = None,
     due_after: date | None = None,
 ) -> list[StudentFee]:
-    statement = select(StudentFee)
+    statement = select(StudentFee).options(selectinload(StudentFee.student))
 
     if course_id is not None:
         statement = statement.join(Student, StudentFee.student_id == Student.id).where(
@@ -63,6 +69,123 @@ def get_all_fees(
 
     statement = statement.order_by(StudentFee.due_date.desc(), StudentFee.id.desc())
     return list(db.execute(statement).scalars().all())
+
+
+def _payment_totals_subquery():
+    return (
+        select(
+            Payment.student_fee_id,
+            func.coalesce(func.sum(Payment.amount), 0).label("paid_amount"),
+        )
+        .group_by(Payment.student_fee_id)
+        .subquery()
+    )
+
+
+def _fee_paid_amount_expression(payment_totals):
+    return func.coalesce(payment_totals.c.paid_amount, 0)
+
+
+def _apply_fee_status_filter(statement, fee_status: FeeStatus, paid_amount):
+    balance = StudentFee.total_amount - paid_amount
+    current_date = date.today()
+
+    if fee_status == FeeStatus.paid:
+        return statement.where(balance <= 0)
+
+    if fee_status == FeeStatus.overdue:
+        return statement.where(balance > 0, StudentFee.due_date < current_date)
+
+    if fee_status == FeeStatus.partial:
+        return statement.where(
+            balance > 0,
+            paid_amount > 0,
+            StudentFee.due_date >= current_date,
+        )
+
+    return statement.where(
+        balance > 0,
+        paid_amount <= 0,
+        StudentFee.due_date >= current_date,
+    )
+
+
+def get_fees_paginated(
+    db: Session,
+    search: str | None = None,
+    student_id: int | None = None,
+    course_id: int | None = None,
+    status: FeeStatus | None = None,
+    due_before: date | None = None,
+    due_after: date | None = None,
+    page: int = 1,
+    page_size: int = 10,
+    sort_by: str = "due_date",
+    sort_order: str = "asc",
+) -> tuple[list[tuple[StudentFee, Decimal]], int]:
+    payment_totals = _payment_totals_subquery()
+    paid_amount = _fee_paid_amount_expression(payment_totals)
+    statement = (
+        select(StudentFee, paid_amount)
+        .outerjoin(payment_totals, StudentFee.id == payment_totals.c.student_fee_id)
+    )
+
+    if search or course_id is not None:
+        statement = statement.join(Student, StudentFee.student_id == Student.id)
+
+    if search:
+        search_pattern = f"%{search.lower()}%"
+        full_name = func.lower(Student.first_name + " " + Student.last_name)
+        statement = statement.where(
+            or_(
+                func.lower(StudentFee.title).like(search_pattern),
+                func.lower(Student.student_code).like(search_pattern),
+                func.lower(Student.first_name).like(search_pattern),
+                func.lower(Student.last_name).like(search_pattern),
+                full_name.like(search_pattern),
+            ),
+        )
+
+    if student_id is not None:
+        statement = statement.where(StudentFee.student_id == student_id)
+
+    if course_id is not None:
+        statement = statement.where(Student.course_id == course_id)
+
+    if due_before is not None:
+        statement = statement.where(StudentFee.due_date <= due_before)
+
+    if due_after is not None:
+        statement = statement.where(StudentFee.due_date >= due_after)
+
+    if status is not None:
+        statement = _apply_fee_status_filter(statement, status, paid_amount)
+
+    count_statement = select(func.count()).select_from(
+        statement.with_only_columns(StudentFee.id).order_by(None).subquery(),
+    )
+    total_items = db.execute(count_statement).scalar_one()
+
+    sort_columns = {
+        "due_date": StudentFee.due_date,
+        "created_at": StudentFee.created_at,
+        "total_amount": StudentFee.total_amount,
+    }
+    sort_column = sort_columns[sort_by]
+    order_column = sort_column.asc() if sort_order == "asc" else sort_column.desc()
+    tie_breaker = StudentFee.id.asc() if sort_order == "asc" else StudentFee.id.desc()
+
+    statement = (
+        statement.options(selectinload(StudentFee.student))
+        .order_by(order_column, tie_breaker)
+        .offset(get_offset(page, page_size))
+        .limit(page_size)
+    )
+
+    return [
+        (fee, normalize_money(paid))
+        for fee, paid in db.execute(statement).all()
+    ], total_items
 
 
 def create_fee(
@@ -129,14 +252,29 @@ def calculate_fee_status(
     return FeeStatus.unpaid
 
 
-def build_fee_response(db: Session, fee: StudentFee) -> StudentFeeResponse:
-    paid_amount = calculate_paid_amount(db, fee.id)
+def build_fee_response(
+    db: Session,
+    fee: StudentFee,
+    paid_amount: Decimal | None = None,
+) -> StudentFeeResponse:
+    paid_amount = paid_amount if paid_amount is not None else calculate_paid_amount(db, fee.id)
     balance = calculate_balance(fee.total_amount, paid_amount)
     fee_status = calculate_fee_status(fee, paid_amount)
+    student_name = None
+    student_code = None
+    course_id = None
+
+    if fee.student is not None:
+        student_name = f"{fee.student.first_name} {fee.student.last_name}"
+        student_code = fee.student.student_code
+        course_id = fee.student.course_id
 
     return StudentFeeResponse(
         id=fee.id,
         student_id=fee.student_id,
+        student_code=student_code,
+        student_name=student_name,
+        course_id=course_id,
         title=fee.title,
         description=fee.description,
         total_amount=normalize_money(fee.total_amount),
@@ -155,7 +293,13 @@ def get_fee_detail(db: Session, fee: StudentFee) -> StudentFeeResponse:
 
 
 def get_fee_summary(db: Session) -> dict[str, Decimal | int]:
-    fees = get_all_fees(db)
+    payment_totals = _payment_totals_subquery()
+    paid_amount_expression = _fee_paid_amount_expression(payment_totals)
+    statement = (
+        select(StudentFee, paid_amount_expression)
+        .outerjoin(payment_totals, StudentFee.id == payment_totals.c.student_fee_id)
+    )
+    fee_rows = db.execute(statement).all()
     total_assigned = ZERO_MONEY
     total_collected = ZERO_MONEY
     total_pending = ZERO_MONEY
@@ -166,8 +310,8 @@ def get_fee_summary(db: Session) -> dict[str, Decimal | int]:
         FeeStatus.overdue: 0,
     }
 
-    for fee in fees:
-        paid_amount = calculate_paid_amount(db, fee.id)
+    for fee, paid_amount in fee_rows:
+        paid_amount = normalize_money(paid_amount)
         balance = calculate_balance(fee.total_amount, paid_amount)
         fee_status = calculate_fee_status(fee, paid_amount)
 

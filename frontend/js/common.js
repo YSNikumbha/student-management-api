@@ -42,6 +42,73 @@ const AdminApp = (() => {
     }).format(Number.isFinite(amount) ? amount : 0);
   }
 
+  function getItems(response) {
+    if (Array.isArray(response)) {
+      return response;
+    }
+
+    return response?.items || [];
+  }
+
+  function buildQueryString(params) {
+    const query = new URLSearchParams();
+
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== "") {
+        query.set(key, value);
+      }
+    });
+
+    const queryString = query.toString();
+    return queryString ? `?${queryString}` : "";
+  }
+
+  function debounce(callback, delay = 400) {
+    let timeoutId;
+
+    return (...args) => {
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => callback(...args), delay);
+    };
+  }
+
+  function renderPagination(target, pageData, onPageChange) {
+    const element = typeof target === "string" ? document.querySelector(target) : target;
+    if (!element || !pageData) {
+      return;
+    }
+
+    const page = Number(pageData.page || 1);
+    const totalPages = Number(pageData.total_pages || 0);
+    const totalItems = Number(pageData.total_items || 0);
+    const hasPages = totalPages > 0;
+    const previousPage = Math.max(1, page - 1);
+    const nextPage = page + 1;
+
+    element.innerHTML = `
+      <div class="pagination-bar">
+        <div class="pagination-summary">
+          ${hasPages ? `Page ${page} of ${totalPages}` : "No pages"}
+          <span>${totalItems} record${totalItems === 1 ? "" : "s"}</span>
+        </div>
+        <div class="pagination-actions">
+          <button class="btn btn-outline-secondary btn-sm" type="button" data-page="${previousPage}" ${page <= 1 ? "disabled" : ""}>
+            Previous
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" type="button" data-page="${nextPage}" ${!hasPages || page >= totalPages ? "disabled" : ""}>
+            Next
+          </button>
+        </div>
+      </div>
+    `;
+
+    element.querySelectorAll("button[data-page]").forEach((button) => {
+      button.addEventListener("click", () => {
+        onPageChange(Number(button.dataset.page));
+      });
+    });
+  }
+
   function statusBadge(value, activeValue = "active") {
     const normalizedValue = String(value).toLowerCase();
     const isActive = normalizedValue === String(activeValue).toLowerCase() || value === true;
@@ -394,15 +461,19 @@ const AdminApp = (() => {
     apiRequest,
     attendanceBadge,
     authFetch,
+    buildQueryString,
     clearAlert,
+    debounce,
     escapeHtml,
     feeStatusBadge,
     formatCurrency,
     formatDate,
     getCurrentUser,
+    getItems,
     getToken,
     isAuthenticated,
     logout,
+    renderPagination,
     saveAuthSession,
     setButtonLoading,
     showAlert,

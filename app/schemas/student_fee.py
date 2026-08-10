@@ -37,6 +37,9 @@ class StudentFeeUpdate(BaseModel):
 class StudentFeeResponse(BaseModel):
     id: int
     student_id: int
+    student_code: str | None = None
+    student_name: str | None = None
+    course_id: int | None = None
     title: str
     description: str | None
     total_amount: Decimal

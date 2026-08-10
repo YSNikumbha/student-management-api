@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.exc import IntegrityError
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.database.database import get_db
 from app.dependencies.auth import get_current_user, require_admin
 from app.models.user import User
+from app.schemas.pagination import PaginatedResponse, build_paginated_response
 from app.schemas.payment import PaymentCreate, PaymentResponse
 from app.schemas.student_fee import (
     FeeStatus,
@@ -86,32 +88,43 @@ def get_student_fees(
     return [fee_service.build_fee_response(db, fee) for fee in fees]
 
 
-@router.get("", response_model=list[StudentFeeResponse])
+@router.get("", response_model=PaginatedResponse[StudentFeeResponse])
 def get_fees(
+    search: str | None = None,
     student_id: int | None = None,
     fee_status: FeeStatus | None = Query(default=None, alias="status"),
     course_id: int | None = None,
     due_before: date | None = None,
     due_after: date | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
+    sort_by: Literal["due_date", "created_at", "total_amount"] = "due_date",
+    sort_order: Literal["asc", "desc"] = "asc",
     db: Session = Depends(get_db),
     _current_user: User = Depends(get_current_user),
-) -> list[StudentFeeResponse]:
+) -> dict[str, list[StudentFeeResponse] | int]:
     if student_id is not None:
         _get_student_or_404(db, student_id)
 
-    fees = fee_service.get_all_fees(
+    fee_rows, total_items = fee_service.get_fees_paginated(
         db,
+        search=search,
         student_id=student_id,
         course_id=course_id,
+        status=fee_status,
         due_before=due_before,
         due_after=due_after,
+        page=page,
+        page_size=page_size,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
-    responses = [fee_service.build_fee_response(db, fee) for fee in fees]
+    responses = [
+        fee_service.build_fee_response(db, fee, paid_amount)
+        for fee, paid_amount in fee_rows
+    ]
 
-    if fee_status is not None:
-        responses = [fee for fee in responses if fee.status == fee_status]
-
-    return responses
+    return build_paginated_response(responses, page, page_size, total_items)
 
 
 @router.get("/{fee_id}", response_model=StudentFeeDetailResponse)

@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
 from app.dependencies.auth import get_current_user, require_admin
 from app.models.student import Student
+from app.schemas.pagination import PaginatedResponse, build_paginated_response
 from app.schemas.student import StudentCreate, StudentResponse, StudentUpdate
 from app.services import course_service, fee_service, student_service
 
@@ -68,11 +71,33 @@ def create_student(
 
 @router.get(
     "",
-    response_model=list[StudentResponse],
+    response_model=PaginatedResponse[StudentResponse],
     dependencies=[Depends(get_current_user)],
 )
-def get_students(db: Session = Depends(get_db)) -> list[Student]:
-    return student_service.get_students(db)
+def get_students(
+    search: str | None = None,
+    course_id: int | None = None,
+    student_status: Literal["active", "inactive"] | None = Query(
+        default=None,
+        alias="status",
+    ),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
+    sort_by: Literal["created_at", "first_name", "last_name", "student_code"] = "created_at",
+    sort_order: Literal["asc", "desc"] = "desc",
+    db: Session = Depends(get_db),
+) -> dict[str, list[Student] | int]:
+    students, total_items = student_service.get_students_paginated(
+        db,
+        search=search,
+        course_id=course_id,
+        status=student_status,
+        page=page,
+        page_size=page_size,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+    return build_paginated_response(students, page, page_size, total_items)
 
 
 @router.get(

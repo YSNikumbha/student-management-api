@@ -1,6 +1,15 @@
 let courses = [];
 let courseModal;
 let currentUser;
+let coursePageData = null;
+let courseState = {
+  page: 1,
+  pageSize: 10,
+  search: "",
+  isActive: "",
+  sortBy: "created_at",
+  sortOrder: "desc",
+};
 
 document.addEventListener("DOMContentLoaded", () => {
   courseModal = new bootstrap.Modal(document.querySelector("#courseModal"));
@@ -13,7 +22,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
   addButton.addEventListener("click", prepareAddCourse);
   document.querySelector("#course-form").addEventListener("submit", saveCourse);
-  document.querySelector("#course-search").addEventListener("input", renderCourses);
+  document.querySelector("#course-search").addEventListener("input", AdminApp.debounce(() => {
+    courseState.search = document.querySelector("#course-search").value.trim();
+    courseState.page = 1;
+    loadCourses();
+  }));
+  document.querySelector("#course-active-filter").addEventListener("change", () => {
+    courseState.isActive = document.querySelector("#course-active-filter").value;
+    courseState.page = 1;
+    loadCourses();
+  });
+  document.querySelector("#course-sort").addEventListener("change", () => {
+    const [sortBy, sortOrder] = document.querySelector("#course-sort").value.split(":");
+    courseState.sortBy = sortBy;
+    courseState.sortOrder = sortOrder;
+    courseState.page = 1;
+    loadCourses();
+  });
+  document.querySelector("#course-page-size").addEventListener("change", () => {
+    courseState.pageSize = Number(document.querySelector("#course-page-size").value);
+    courseState.page = 1;
+    loadCourses();
+  });
   document.querySelector("#courses-table-body").addEventListener("click", handleCourseAction);
 
   loadCourses();
@@ -28,8 +58,19 @@ async function loadCourses() {
   `;
 
   try {
-    courses = await AdminApp.authFetch("/courses");
+    const query = AdminApp.buildQueryString({
+      search: courseState.search,
+      is_active: courseState.isActive,
+      page: courseState.page,
+      page_size: courseState.pageSize,
+      sort_by: courseState.sortBy,
+      sort_order: courseState.sortOrder,
+    });
+    const response = await AdminApp.authFetch(`/courses${query}`);
+    courses = AdminApp.getItems(response);
+    coursePageData = response;
     renderCourses();
+    renderCoursePagination();
   } catch (error) {
     AdminApp.showAlert("#courses-alert", error.message, "danger");
   }
@@ -37,14 +78,8 @@ async function loadCourses() {
 
 function renderCourses() {
   const tableBody = document.querySelector("#courses-table-body");
-  const searchTerm = document.querySelector("#course-search").value.trim().toLowerCase();
 
-  const filteredCourses = courses.filter((course) => {
-    const searchable = [course.code, course.name].join(" ").toLowerCase();
-    return searchable.includes(searchTerm);
-  });
-
-  if (filteredCourses.length === 0) {
+  if (courses.length === 0) {
     tableBody.innerHTML = `
       <tr>
         <td colspan="6" class="text-center text-muted py-4">No courses found.</td>
@@ -53,7 +88,7 @@ function renderCourses() {
     return;
   }
 
-  tableBody.innerHTML = filteredCourses.map((course) => {
+  tableBody.innerHTML = courses.map((course) => {
     const durationText = course.duration_months
       ? `${course.duration_months} months`
       : "Not Set";
@@ -87,6 +122,13 @@ function renderCourses() {
       </tr>
     `;
   }).join("");
+}
+
+function renderCoursePagination() {
+  AdminApp.renderPagination("#courses-pagination", coursePageData, (page) => {
+    courseState.page = page;
+    loadCourses();
+  });
 }
 
 function prepareAddCourse() {
@@ -149,6 +191,7 @@ async function saveCourse(event) {
         method: "POST",
         body: payload,
       });
+      courseState.page = 1;
       AdminApp.showAlert("#courses-alert", "Course created successfully.", "success");
     }
 

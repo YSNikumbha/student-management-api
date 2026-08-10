@@ -86,6 +86,64 @@
               </table>
             </div>
           </section>
+
+          <section class="content-panel mt-4">
+            <div class="panel-header panel-header-actions">
+              <div>
+                <h2>Attendance History</h2>
+                <p>Review saved records with backend filters</p>
+              </div>
+              <button id="load-attendance-history" class="btn btn-outline-primary" type="button">
+                <i class="bi bi-search"></i>
+                Load History
+              </button>
+            </div>
+
+            <div class="filter-row mb-3">
+              <div>
+                <label for="history-start-date" class="form-label">Start Date</label>
+                <input id="history-start-date" class="form-control" type="date">
+              </div>
+              <div>
+                <label for="history-end-date" class="form-label">End Date</label>
+                <input id="history-end-date" class="form-control" type="date">
+              </div>
+              <select id="history-course" class="form-select" aria-label="Filter attendance history by course">
+                <option value="">All courses</option>
+              </select>
+              <select id="history-status" class="form-select" aria-label="Filter attendance history by status">
+                <option value="">All statuses</option>
+                <option value="present">Present</option>
+                <option value="absent">Absent</option>
+                <option value="late">Late</option>
+              </select>
+              <select id="history-page-size" class="form-select" aria-label="Rows per page">
+                <option value="10">10 rows</option>
+                <option value="25">25 rows</option>
+                <option value="50">50 rows</option>
+              </select>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table align-middle table-hover">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Student ID</th>
+                    <th>Status</th>
+                    <th>Remarks</th>
+                    <th>Updated</th>
+                  </tr>
+                </thead>
+                <tbody id="attendance-history-body">
+                  <tr>
+                    <td colspan="5" class="text-center text-muted py-4">Use filters above to load attendance history.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div id="attendance-history-pagination"></div>
+          </section>
         </main>
       </div>
     </div>

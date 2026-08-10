@@ -1,10 +1,11 @@
 from datetime import date, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.attendance import Attendance
 from app.models.student import Student
+from app.schemas.pagination import get_offset
 from app.schemas.attendance import (
     AttendanceBulkItem,
     AttendanceCreate,
@@ -62,6 +63,57 @@ def get_attendance_records(
 
     statement = statement.order_by(Attendance.date.desc(), Attendance.id.desc())
     return list(db.execute(statement).scalars().all())
+
+
+def get_attendance_records_paginated(
+    db: Session,
+    attendance_date: date | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    student_id: int | None = None,
+    course_id: int | None = None,
+    status: str | None = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> tuple[list[Attendance], int]:
+    statement = select(Attendance)
+
+    if course_id is not None:
+        statement = statement.join(Student, Attendance.student_id == Student.id).where(
+            Student.course_id == course_id,
+        )
+
+    if attendance_date is not None:
+        statement = statement.where(Attendance.date == attendance_date)
+    else:
+        if start_date is not None:
+            statement = statement.where(Attendance.date >= start_date)
+
+        if end_date is not None:
+            statement = statement.where(Attendance.date <= end_date)
+
+    if student_id is not None:
+        statement = statement.where(Attendance.student_id == student_id)
+
+    if status is not None:
+        statement = statement.where(Attendance.status == status)
+
+    count_statement = select(func.count()).select_from(
+        statement.order_by(None).subquery(),
+    )
+    total_items = db.execute(count_statement).scalar_one()
+
+    statement = (
+        statement.order_by(
+            Attendance.date.desc(),
+            Attendance.updated_at.desc(),
+            Attendance.id.desc(),
+        )
+        .offset(get_offset(page, page_size))
+        .limit(page_size)
+    )
+
+    return list(db.execute(statement).scalars().all()), total_items
 
 
 def get_student_attendance(

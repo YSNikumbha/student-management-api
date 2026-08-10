@@ -56,73 +56,46 @@
                 <p id="active-courses" class="summary-value">...</p>
               </div>
             </article>
-          </section>
 
-          <section class="content-panel mt-4">
-            <div class="panel-header">
-              <div>
-                <h2>Today's Attendance</h2>
-                <p id="attendance-date-label">Live attendance status for today</p>
-              </div>
-              <a class="btn btn-sm btn-outline-primary" href="/admin/attendance">
+            <article class="summary-card">
+              <div class="summary-icon bg-secondary-subtle text-secondary">
                 <i class="bi bi-calendar-check"></i>
-                Attendance
-              </a>
-            </div>
+              </div>
+              <div>
+                <p class="summary-label">Today's Attendance</p>
+                <p id="today-marked" class="summary-value">...</p>
+              </div>
+            </article>
 
-            <div id="today-attendance-empty" class="text-muted d-none">
-              No attendance marked today.
-            </div>
-            <div id="today-attendance-summary" class="attendance-mini-grid">
-              <div>
-                <span class="mini-label">Marked</span>
-                <strong id="today-marked">...</strong>
+            <article class="summary-card">
+              <div class="summary-icon bg-success-subtle text-success">
+                <i class="bi bi-cash-stack"></i>
               </div>
               <div>
-                <span class="mini-label">Present</span>
-                <strong id="today-present">...</strong>
+                <p class="summary-label">Total Collected</p>
+                <p id="fees-collected" class="summary-value summary-money">...</p>
               </div>
-              <div>
-                <span class="mini-label">Absent</span>
-                <strong id="today-absent">...</strong>
-              </div>
-              <div>
-                <span class="mini-label">Late</span>
-                <strong id="today-late">...</strong>
-              </div>
-            </div>
-          </section>
+            </article>
 
-          <section class="content-panel mt-4">
-            <div class="panel-header">
-              <div>
-                <h2>Fee Overview</h2>
-                <p>Current collection and pending balances</p>
+            <article class="summary-card">
+              <div class="summary-icon bg-warning-subtle text-warning">
+                <i class="bi bi-wallet2"></i>
               </div>
-              <a class="btn btn-sm btn-outline-primary" href="/admin/fees">
-                <i class="bi bi-cash-coin"></i>
-                Fees
-              </a>
-            </div>
+              <div>
+                <p class="summary-label">Pending Fees</p>
+                <p id="fees-pending" class="summary-value summary-money">...</p>
+              </div>
+            </article>
 
-            <div class="attendance-mini-grid">
-              <div>
-                <span class="mini-label">Assigned</span>
-                <strong id="fees-assigned">...</strong>
+            <article class="summary-card">
+              <div class="summary-icon bg-danger-subtle text-danger">
+                <i class="bi bi-exclamation-circle"></i>
               </div>
               <div>
-                <span class="mini-label">Collected</span>
-                <strong id="fees-collected">...</strong>
+                <p class="summary-label">Overdue Fees</p>
+                <p id="fees-overdue" class="summary-value">...</p>
               </div>
-              <div>
-                <span class="mini-label">Pending</span>
-                <strong id="fees-pending">...</strong>
-              </div>
-              <div>
-                <span class="mini-label">Overdue</span>
-                <strong id="fees-overdue">...</strong>
-              </div>
-            </div>
+            </article>
           </section>
 
           <section class="content-panel mt-4">
@@ -151,6 +124,69 @@
                 <tbody id="recent-students-body">
                   <tr>
                     <td colspan="5" class="text-center text-muted py-4">Loading...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="content-panel mt-4">
+            <div class="panel-header">
+              <div>
+                <h2>Recent Payments</h2>
+                <p>Latest recorded fee payments</p>
+              </div>
+              <a class="btn btn-sm btn-outline-primary" href="/admin/fees">
+                <i class="bi bi-arrow-right"></i>
+                Fees
+              </a>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table align-middle table-hover">
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Fee</th>
+                    <th>Amount</th>
+                    <th>Date</th>
+                    <th>Method</th>
+                  </tr>
+                </thead>
+                <tbody id="recent-payments-body">
+                  <tr>
+                    <td colspan="5" class="text-center text-muted py-4">Loading...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="content-panel mt-4">
+            <div class="panel-header">
+              <div>
+                <h2>Recent Attendance</h2>
+                <p>Latest attendance updates</p>
+              </div>
+              <a class="btn btn-sm btn-outline-primary" href="/admin/attendance">
+                <i class="bi bi-arrow-right"></i>
+                Attendance
+              </a>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table align-middle table-hover">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Student</th>
+                    <th>Status</th>
+                    <th>Updated</th>
+                  </tr>
+                </thead>
+                <tbody id="recent-attendance-body">
+                  <tr>
+                    <td colspan="4" class="text-center text-muted py-4">Loading...</td>
                   </tr>
                 </tbody>
               </table>

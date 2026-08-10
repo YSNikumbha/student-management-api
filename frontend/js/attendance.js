@@ -1,5 +1,10 @@
 let attendanceCourses = [];
 let attendanceRows = [];
+let attendanceHistoryPageData = null;
+let attendanceHistoryState = {
+  page: 1,
+  pageSize: 10,
+};
 
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelector("#attendance-date").value = getTodayDateString();
@@ -7,17 +12,32 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelector("#mark-all-present").addEventListener("click", markAllPresent);
   document.querySelector("#clear-attendance").addEventListener("click", clearAttendance);
   document.querySelector("#save-attendance").addEventListener("click", saveAttendance);
+  document.querySelector("#load-attendance-history").addEventListener("click", () => {
+    attendanceHistoryState.page = 1;
+    loadAttendanceHistory();
+  });
+  document.querySelector("#history-course").addEventListener("change", resetAndLoadAttendanceHistory);
+  document.querySelector("#history-status").addEventListener("change", resetAndLoadAttendanceHistory);
+  document.querySelector("#history-start-date").addEventListener("change", resetAndLoadAttendanceHistory);
+  document.querySelector("#history-end-date").addEventListener("change", resetAndLoadAttendanceHistory);
+  document.querySelector("#history-page-size").addEventListener("change", () => {
+    attendanceHistoryState.pageSize = Number(document.querySelector("#history-page-size").value);
+    resetAndLoadAttendanceHistory();
+  });
 
   loadCourses();
+  loadAttendanceHistory();
 });
 
 async function loadCourses() {
   const courseSelect = document.querySelector("#attendance-course");
 
   try {
-    attendanceCourses = await AdminApp.authFetch("/courses");
+    const response = await AdminApp.authFetch("/courses?page_size=100&sort_by=name&sort_order=asc");
+    attendanceCourses = AdminApp.getItems(response);
     if (attendanceCourses.length === 0) {
       courseSelect.innerHTML = '<option value="">No courses found</option>';
+      renderHistoryCourseOptions();
       return;
     }
 
@@ -29,10 +49,24 @@ async function loadCourses() {
         </option>
       `).join("")}
     `;
+    renderHistoryCourseOptions();
   } catch (error) {
     AdminApp.showAlert("#attendance-alert", error.message, "danger");
     courseSelect.innerHTML = '<option value="">Unable to load courses</option>';
+    renderHistoryCourseOptions();
   }
+}
+
+function renderHistoryCourseOptions() {
+  const historyCourseSelect = document.querySelector("#history-course");
+  historyCourseSelect.innerHTML = `
+    <option value="">All courses</option>
+    ${attendanceCourses.map((course) => `
+      <option value="${course.id}">
+        ${AdminApp.escapeHtml(course.name)} (${AdminApp.escapeHtml(course.code)})
+      </option>
+    `).join("")}
+  `;
 }
 
 async function loadAttendance() {
@@ -142,6 +176,78 @@ function clearAttendance() {
   });
   document.querySelectorAll(".attendance-remarks").forEach((input) => {
     input.value = "";
+  });
+}
+
+function resetAndLoadAttendanceHistory() {
+  attendanceHistoryState.page = 1;
+  loadAttendanceHistory();
+}
+
+async function loadAttendanceHistory() {
+  const tableBody = document.querySelector("#attendance-history-body");
+  const loadButton = document.querySelector("#load-attendance-history");
+  tableBody.innerHTML = `
+    <tr>
+      <td colspan="5" class="text-center text-muted py-4">Loading...</td>
+    </tr>
+  `;
+
+  AdminApp.setButtonLoading(loadButton, true, "Loading...");
+
+  try {
+    const query = AdminApp.buildQueryString({
+      start_date: document.querySelector("#history-start-date").value,
+      end_date: document.querySelector("#history-end-date").value,
+      course_id: document.querySelector("#history-course").value,
+      status: document.querySelector("#history-status").value,
+      page: attendanceHistoryState.page,
+      page_size: attendanceHistoryState.pageSize,
+    });
+    const response = await AdminApp.authFetch(`/attendance${query}`);
+    const records = AdminApp.getItems(response);
+    attendanceHistoryPageData = response;
+    renderAttendanceHistory(records);
+    renderAttendanceHistoryPagination();
+  } catch (error) {
+    AdminApp.showAlert("#attendance-alert", error.message, "danger");
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="5" class="text-center text-muted py-4">Unable to load attendance history.</td>
+      </tr>
+    `;
+  } finally {
+    AdminApp.setButtonLoading(loadButton, false);
+  }
+}
+
+function renderAttendanceHistory(records) {
+  const tableBody = document.querySelector("#attendance-history-body");
+
+  if (records.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="5" class="text-center text-muted py-4">No attendance records found for this period.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  tableBody.innerHTML = records.map((record) => `
+    <tr>
+      <td>${AdminApp.escapeHtml(record.date)}</td>
+      <td>${AdminApp.escapeHtml(record.student_id)}</td>
+      <td>${AdminApp.attendanceBadge(record.status)}</td>
+      <td>${AdminApp.escapeHtml(record.remarks || "")}</td>
+      <td>${AdminApp.escapeHtml(AdminApp.formatDate(record.updated_at))}</td>
+    </tr>
+  `).join("");
+}
+
+function renderAttendanceHistoryPagination() {
+  AdminApp.renderPagination("#attendance-history-pagination", attendanceHistoryPageData, (page) => {
+    attendanceHistoryState.page = page;
+    loadAttendanceHistory();
   });
 }
 
