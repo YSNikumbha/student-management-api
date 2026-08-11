@@ -9,7 +9,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base
 
 if TYPE_CHECKING:
+    from app.models.academic_year import AcademicYear
+    from app.models.batch import Batch
     from app.models.course import Course
+    from app.models.semester import Semester
     from app.models.student_fee import StudentFee
 
 
@@ -37,6 +40,22 @@ class Student(Base):
         ForeignKey("courses.id"),
         nullable=True,
     )
+    academic_year_id: Mapped[int | None] = mapped_column(
+        ForeignKey("academic_years.id"),
+        nullable=True,
+        index=True,
+    )
+    semester_id: Mapped[int | None] = mapped_column(
+        ForeignKey("semesters.id"),
+        nullable=True,
+        index=True,
+    )
+    batch_id: Mapped[int | None] = mapped_column(
+        ForeignKey("batches.id"),
+        nullable=True,
+        index=True,
+    )
+    admission_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
@@ -45,6 +64,9 @@ class Student(Base):
     )
 
     course: Mapped[Course | None] = relationship(back_populates="students")
+    academic_year: Mapped[AcademicYear | None] = relationship(back_populates="students")
+    semester: Mapped[Semester | None] = relationship(back_populates="students")
+    batch: Mapped[Batch | None] = relationship(back_populates="students")
     fees: Mapped[list[StudentFee]] = relationship(
         back_populates="student",
         passive_deletes=True,

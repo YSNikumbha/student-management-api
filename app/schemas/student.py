@@ -13,6 +13,10 @@ class StudentBase(BaseModel):
     phone: str | None = None
     date_of_birth: date | None = None
     course_id: int | None = None
+    academic_year_id: int | None = None
+    semester_id: int | None = None
+    batch_id: int | None = None
+    admission_date: date | None = None
 
     @field_validator("student_code")
     @classmethod
@@ -53,17 +57,13 @@ class StudentBase(BaseModel):
             raise ValueError("Name must be between 2 and 100 characters.")
         
         # Allow letters (including Unicode), spaces, apostrophes, hyphens
-        # Use a pattern that works with Python's re module
         import re
-        # Match: letters (any Unicode), spaces, apostrophes, hyphens
-        if not re.match(r'^[^\W\d_]+[\w\s\'-]*$', normalized, re.UNICODE):
-            # More permissive fallback: just check for invalid chars
-            if re.search(r'[0-9]', normalized):
-                raise ValueError("Name cannot contain numbers.")
-            if re.search(r'[^a-zA-Z\s\'-]', normalized):
-                # Check if it's a Unicode letter (non-ASCII)
-                if not all(c.isalpha() or c in " '-" for c in normalized):
-                    raise ValueError("Name contains invalid characters.")
+        # Check for numbers (not allowed)
+        if re.search(r'[0-9]', normalized):
+            raise ValueError("Name cannot contain numbers.")
+        # Check for other invalid characters (allow letters, spaces, apostrophes, hyphens)
+        if not all(c.isalpha() or c in " '-" for c in normalized):
+            raise ValueError("Name contains invalid characters.")
         
         return normalized
 
@@ -84,6 +84,7 @@ class StudentBase(BaseModel):
         normalized = value.strip()
         
         # Remove all non-digit characters except leading +
+        import re
         cleaned = re.sub(r'[^\d+]', '', normalized)
         
         # Check if it starts with +
@@ -131,6 +132,10 @@ class StudentUpdate(BaseModel):
     phone: str | None = None
     date_of_birth: date | None = None
     course_id: int | None = None
+    academic_year_id: int | None = None
+    semester_id: int | None = None
+    batch_id: int | None = None
+    admission_date: date | None = None
     status: Literal["active", "inactive"] | None = None
 
     @field_validator("student_code")

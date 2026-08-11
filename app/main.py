@@ -4,14 +4,18 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.routers.academic_years import router as academic_years_router
 from app.routers.attendance import router as attendance_router
 from app.routers.auth import router as auth_router
+from app.routers.batches import router as batches_router
 from app.routers.courses import router as courses_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.fees import router as fees_router
 from app.routers.payments import router as payments_router
 from app.routers.reports import router as reports_router
+from app.routers.semesters import router as semesters_router
 from app.routers.students import router as students_router
+from app.routers.subjects import router as subjects_router
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
@@ -27,6 +31,10 @@ def read_health() -> dict[str, str]:
     return {"status": "healthy"}
 
 app.include_router(auth_router)
+app.include_router(academic_years_router)
+app.include_router(semesters_router)
+app.include_router(subjects_router)
+app.include_router(batches_router)
 app.include_router(students_router)
 app.include_router(courses_router)
 app.include_router(attendance_router)
