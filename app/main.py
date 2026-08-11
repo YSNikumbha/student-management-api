@@ -10,6 +10,7 @@ from app.routers.courses import router as courses_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.fees import router as fees_router
 from app.routers.payments import router as payments_router
+from app.routers.reports import router as reports_router
 from app.routers.students import router as students_router
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
@@ -20,12 +21,18 @@ app = FastAPI(
     version="1.0.0",
 )
 
+
+@app.get("/health")
+def read_health() -> dict[str, str]:
+    return {"status": "healthy"}
+
 app.include_router(auth_router)
 app.include_router(students_router)
 app.include_router(courses_router)
 app.include_router(attendance_router)
 app.include_router(fees_router)
 app.include_router(payments_router)
+app.include_router(reports_router)
 app.include_router(dashboard_router)
 app.mount("/admin/assets", StaticFiles(directory=FRONTEND_DIR), name="admin-assets")
 
@@ -33,11 +40,6 @@ app.mount("/admin/assets", StaticFiles(directory=FRONTEND_DIR), name="admin-asse
 @app.get("/")
 def read_root() -> dict[str, str]:
     return {"message": "Welcome to Student Management API"}
-
-
-@app.get("/health")
-def read_health() -> dict[str, str]:
-    return {"status": "healthy"}
 
 
 @app.get("/admin", include_in_schema=False)
@@ -63,6 +65,11 @@ def read_admin_attendance() -> FileResponse:
 @app.get("/admin/fees", include_in_schema=False)
 def read_admin_fees() -> FileResponse:
     return FileResponse(FRONTEND_DIR / "fees.html")
+
+
+@app.get("/admin/reports", include_in_schema=False)
+def read_admin_reports() -> FileResponse:
+    return FileResponse(FRONTEND_DIR / "reports.html")
 
 
 @app.get("/login", include_in_schema=False)

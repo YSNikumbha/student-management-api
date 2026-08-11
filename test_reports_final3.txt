@@ -1,0 +1,111 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.3.4, pluggy-1.6.0 -- /home/yash-nikumbha/codebase2/student-management-api/venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /home/yash-nikumbha/codebase2/student-management-api
+plugins: anyio-4.14.2
+collecting ... collected 25 items
+
+tests/test_reports.py::test_reports_require_authentication PASSED        [  4%]
+tests/test_reports.py::test_student_report_returns_filtered_students PASSED [  8%]
+tests/test_reports.py::test_student_report_filters_by_course PASSED      [ 12%]
+tests/test_reports.py::test_student_report_filters_by_status PASSED      [ 16%]
+tests/test_reports.py::test_attendance_report_calculations PASSED        [ 20%]
+tests/test_reports.py::test_attendance_report_detailed_mode PASSED       [ 24%]
+tests/test_reports.py::test_fee_report_balances FAILED                   [ 28%]
+tests/test_reports.py::test_fee_report_status_filter PASSED              [ 32%]
+tests/test_reports.py::test_course_report_counts PASSED                  [ 36%]
+tests/test_reports.py::test_csv_export_status_and_content_type PASSED    [ 40%]
+tests/test_reports.py::test_pdf_export_status_and_content_type PASSED    [ 44%]
+tests/test_reports.py::test_date_range_validation PASSED                 [ 48%]
+tests/test_reports.py::test_staff_can_access_reports PASSED              [ 52%]
+tests/test_reports.py::test_staff_can_export_csv FAILED                  [ 56%]
+tests/test_reports.py::test_staff_can_export_pdf FAILED                  [ 60%]
+tests/test_reports.py::test_attendance_report_date_filter PASSED         [ 64%]
+tests/test_reports.py::test_fee_report_due_date_filter PASSED            [ 68%]
+tests/test_reports.py::test_course_report_search PASSED                  [ 72%]
+tests/test_reports.py::test_course_report_active_filter PASSED           [ 76%]
+tests/test_reports.py::test_attendance_csv_export PASSED                 [ 80%]
+tests/test_reports.py::test_fee_csv_export PASSED                        [ 84%]
+tests/test_reports.py::test_course_csv_export PASSED                     [ 88%]
+tests/test_reports.py::test_attendance_pdf_export PASSED                 [ 92%]
+tests/test_reports.py::test_fee_pdf_export PASSED                        [ 96%]
+tests/test_reports.py::test_course_pdf_export PASSED                     [100%]
+
+=================================== FAILURES ===================================
+___________________________ test_fee_report_balances ___________________________
+
+client = <starlette.testclient.TestClient object at 0x7278aefefce0>
+admin_token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJhZG1pbiIsImV4cCI6MTc4NjQ0NDA3N30.e3pFt6azIbVp6nCl-pFS7CGDNPQ7cgDigLDrEcrO2mY'
+test_data = {'admin': <app.models.user.User object at 0x7278b06373b0>, 'course': <app.models.course.Course object at 0x7278af99f0e...tudent_fee.StudentFee object at 0x7278aefa76e0>, 'payment': <app.models.payment.Payment object at 0x7278aefbbce0>, ...}
+
+    def test_fee_report_balances(client: TestClient, admin_token, test_data):
+        response = client.get(
+            "/reports/fees",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert "items" in data
+        for item in data["items"]:
+            assert "balance" in item
+>           assert item["balance"] == item["total_amount"] - item["paid_amount"]
+E           TypeError: unsupported operand type(s) for -: 'str' and 'str'
+
+tests/test_reports.py:215: TypeError
+__________________________ test_staff_can_export_csv ___________________________
+
+client = <starlette.testclient.TestClient object at 0x7278ae5ab890>
+staff_token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzdGFmZkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdGFmZiIsImV4cCI6MTc4NjQ0NDA4NX0.JQfZcxAlPBkyZQgH1blfxBq0eirkd7ZPYh5bFjJ_rFI'
+test_data = {'admin': <app.models.user.User object at 0x7278b06373b0>, 'course': <app.models.course.Course object at 0x7278af99f0e...tudent_fee.StudentFee object at 0x7278aefa76e0>, 'payment': <app.models.payment.Payment object at 0x7278aefbbce0>, ...}
+
+    def test_staff_can_export_csv(client: TestClient, staff_token, test_data):
+        response = client.get(
+            "/reports/students/export/csv",
+            headers={"Authorization": f"Bearer {staff_token}"},
+        )
+>       assert response.status_code == status.HTTP_200_OK
+E       assert 403 == 200
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+E        +  and   200 = status.HTTP_200_OK
+
+tests/test_reports.py:287: AssertionError
+__________________________ test_staff_can_export_pdf ___________________________
+
+client = <starlette.testclient.TestClient object at 0x7278ae5a1b50>
+staff_token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzdGFmZkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdGFmZiIsImV4cCI6MTc4NjQ0NDA4Nn0.jR4Y_6-bO1wXBRVcDclcMUolgTDqYCbcD_5dHmmim8M'
+test_data = {'admin': <app.models.user.User object at 0x7278b06373b0>, 'course': <app.models.course.Course object at 0x7278af99f0e...tudent_fee.StudentFee object at 0x7278aefa76e0>, 'payment': <app.models.payment.Payment object at 0x7278aefbbce0>, ...}
+
+    def test_staff_can_export_pdf(client: TestClient, staff_token, test_data):
+        response = client.get(
+            "/reports/students/export/pdf",
+            headers={"Authorization": f"Bearer {staff_token}"},
+        )
+>       assert response.status_code == status.HTTP_200_OK
+E       assert 403 == 200
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+E        +  and   200 = status.HTTP_200_OK
+
+tests/test_reports.py:296: AssertionError
+=============================== warnings summary ===============================
+venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/yash-nikumbha/codebase2/student-management-api/venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+venv/lib/python3.12/site-packages/reportlab/lib/rl_safe_eval.py:12
+  /home/yash-nikumbha/codebase2/student-management-api/venv/lib/python3.12/site-packages/reportlab/lib/rl_safe_eval.py:12: DeprecationWarning: ast.NameConstant is deprecated and will be removed in Python 3.14; use ast.Constant instead
+    haveNameConstant = hasattr(ast,'NameConstant')
+
+tests/test_reports.py::test_date_range_validation
+  /home/yash-nikumbha/codebase2/student-management-api/app/routers/reports.py:78: StarletteDeprecationWarning: 'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated. Use 'HTTP_422_UNPROCESSABLE_CONTENT' instead.
+    _validate_date_range(start_date, end_date)
+
+tests/test_reports.py::test_date_range_validation
+  /home/yash-nikumbha/codebase2/student-management-api/venv/lib/python3.12/site-packages/_pytest/python.py:159: StarletteDeprecationWarning: 'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated. Use 'HTTP_422_UNPROCESSABLE_CONTENT' instead.
+    result = testfunction(**testargs)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_reports.py::test_fee_report_balances - TypeError: unsupport...
+FAILED tests/test_reports.py::test_staff_can_export_csv - assert 403 == 200
+FAILED tests/test_reports.py::test_staff_can_export_pdf - assert 403 == 200
+================== 3 failed, 22 passed, 4 warnings in 28.49s ===================

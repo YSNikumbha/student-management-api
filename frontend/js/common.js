@@ -8,7 +8,7 @@ const AdminApp = (() => {
     { key: "courses", label: "Courses", icon: "bi-journal-bookmark", href: "/admin/courses" },
     { key: "attendance", label: "Attendance", icon: "bi-calendar-check", href: "/admin/attendance" },
     { key: "fees", label: "Fees", icon: "bi-cash-coin", href: "/admin/fees" },
-    { key: "reports", label: "Reports", icon: "bi-bar-chart", disabled: true },
+    { key: "reports", label: "Reports", icon: "bi-bar-chart", href: "/admin/reports" },
   ];
 
   function escapeHtml(value) {

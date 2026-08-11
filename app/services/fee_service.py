@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy import func, or_, select
@@ -209,7 +209,7 @@ def update_fee(
     for field, value in update_data.items():
         setattr(fee, field, value)
 
-    fee.updated_at = datetime.utcnow()
+    fee.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(fee)
     return fee

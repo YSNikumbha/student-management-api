@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -209,7 +209,7 @@ def bulk_upsert_attendance(
     created = 0
     updated = 0
     result_by_student_id: dict[int, Attendance] = {}
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
 
     for record in records:
         attendance = existing_by_student_id.get(record.student_id)
@@ -255,7 +255,7 @@ def update_attendance(
         attendance.remarks = update_data["remarks"]
 
     attendance.marked_by = marked_by
-    attendance.updated_at = datetime.utcnow()
+    attendance.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(attendance)
     return attendance

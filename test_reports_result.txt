@@ -1,0 +1,430 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.3.4, pluggy-1.6.0 -- /home/yash-nikumbha/codebase2/student-management-api/venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /home/yash-nikumbha/codebase2/student-management-api
+plugins: anyio-4.14.2
+collecting ... collected 25 items
+
+tests/test_reports.py::test_reports_require_authentication PASSED        [  4%]
+tests/test_reports.py::test_student_report_returns_filtered_students ERROR [  8%]
+tests/test_reports.py::test_student_report_filters_by_course ERROR       [ 12%]
+tests/test_reports.py::test_student_report_filters_by_status ERROR       [ 16%]
+tests/test_reports.py::test_attendance_report_calculations ERROR         [ 20%]
+tests/test_reports.py::test_attendance_report_detailed_mode ERROR        [ 24%]
+tests/test_reports.py::test_fee_report_balances ERROR                    [ 28%]
+tests/test_reports.py::test_fee_report_status_filter ERROR               [ 32%]
+tests/test_reports.py::test_course_report_counts ERROR                   [ 36%]
+tests/test_reports.py::test_csv_export_status_and_content_type ERROR     [ 40%]
+tests/test_reports.py::test_pdf_export_status_and_content_type ERROR     [ 44%]
+tests/test_reports.py::test_date_range_validation ERROR                  [ 48%]
+tests/test_reports.py::test_staff_can_access_reports ERROR               [ 52%]
+tests/test_reports.py::test_staff_can_export_csv ERROR                   [ 56%]
+tests/test_reports.py::test_staff_can_export_pdf ERROR                   [ 60%]
+tests/test_reports.py::test_attendance_report_date_filter ERROR          [ 64%]
+tests/test_reports.py::test_fee_report_due_date_filter ERROR             [ 68%]
+tests/test_reports.py::test_course_report_search ERROR                   [ 72%]
+tests/test_reports.py::test_course_report_active_filter ERROR            [ 76%]
+tests/test_reports.py::test_attendance_csv_export ERROR                  [ 80%]
+tests/test_reports.py::test_fee_csv_export ERROR                         [ 84%]
+tests/test_reports.py::test_course_csv_export ERROR                      [ 88%]
+tests/test_reports.py::test_attendance_pdf_export ERROR                  [ 92%]
+tests/test_reports.py::test_fee_pdf_export ERROR                         [ 96%]
+tests/test_reports.py::test_course_pdf_export ERROR                      [100%]
+
+==================================== ERRORS ====================================
+_______ ERROR at setup of test_student_report_returns_filtered_students ________
+
+client = <starlette.testclient.TestClient object at 0x74f758173fb0>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+___________ ERROR at setup of test_student_report_filters_by_course ____________
+
+client = <starlette.testclient.TestClient object at 0x74f758185b20>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+___________ ERROR at setup of test_student_report_filters_by_status ____________
+
+client = <starlette.testclient.TestClient object at 0x74f758185f40>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+____________ ERROR at setup of test_attendance_report_calculations _____________
+
+client = <starlette.testclient.TestClient object at 0x74f758206bd0>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+____________ ERROR at setup of test_attendance_report_detailed_mode ____________
+
+client = <starlette.testclient.TestClient object at 0x74f7582059d0>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+__________________ ERROR at setup of test_fee_report_balances __________________
+
+client = <starlette.testclient.TestClient object at 0x74f758206db0>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+_______________ ERROR at setup of test_fee_report_status_filter ________________
+
+client = <starlette.testclient.TestClient object at 0x74f757fabd10>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+_________________ ERROR at setup of test_course_report_counts __________________
+
+client = <starlette.testclient.TestClient object at 0x74f757faa300>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+__________ ERROR at setup of test_csv_export_status_and_content_type ___________
+
+client = <starlette.testclient.TestClient object at 0x74f757fab260>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+__________ ERROR at setup of test_pdf_export_status_and_content_type ___________
+
+client = <starlette.testclient.TestClient object at 0x74f758206600>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+_________________ ERROR at setup of test_date_range_validation _________________
+
+client = <starlette.testclient.TestClient object at 0x74f758204800>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+_______________ ERROR at setup of test_staff_can_access_reports ________________
+
+client = <starlette.testclient.TestClient object at 0x74f758186330>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def staff_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "staff@example.com", "password": "staff123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:138: KeyError
+_________________ ERROR at setup of test_staff_can_export_csv __________________
+
+client = <starlette.testclient.TestClient object at 0x74f757f4f170>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def staff_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "staff@example.com", "password": "staff123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:138: KeyError
+_________________ ERROR at setup of test_staff_can_export_pdf __________________
+
+client = <starlette.testclient.TestClient object at 0x74f757f4f680>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def staff_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "staff@example.com", "password": "staff123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:138: KeyError
+_____________ ERROR at setup of test_attendance_report_date_filter _____________
+
+client = <starlette.testclient.TestClient object at 0x74f758022bd0>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+______________ ERROR at setup of test_fee_report_due_date_filter _______________
+
+client = <starlette.testclient.TestClient object at 0x74f758021130>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+_________________ ERROR at setup of test_course_report_search __________________
+
+client = <starlette.testclient.TestClient object at 0x74f7580237a0>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+______________ ERROR at setup of test_course_report_active_filter ______________
+
+client = <starlette.testclient.TestClient object at 0x74f758020a10>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+_________________ ERROR at setup of test_attendance_csv_export _________________
+
+client = <starlette.testclient.TestClient object at 0x74f757f4faa0>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+____________________ ERROR at setup of test_fee_csv_export _____________________
+
+client = <starlette.testclient.TestClient object at 0x74f758185a90>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+___________________ ERROR at setup of test_course_csv_export ___________________
+
+client = <starlette.testclient.TestClient object at 0x74f758186570>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+_________________ ERROR at setup of test_attendance_pdf_export _________________
+
+client = <starlette.testclient.TestClient object at 0x74f758207a10>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+____________________ ERROR at setup of test_fee_pdf_export _____________________
+
+client = <starlette.testclient.TestClient object at 0x74f757fa9640>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+___________________ ERROR at setup of test_course_pdf_export ___________________
+
+client = <starlette.testclient.TestClient object at 0x74f756e368a0>
+test_data = {'admin': <app.models.user.User object at 0x74f75811b710>, 'course': <app.models.course.Course object at 0x74f7582b125...tudent_fee.StudentFee object at 0x74f758e16e70>, 'payment': <app.models.payment.Payment object at 0x74f758173e30>, ...}
+
+    @pytest.fixture
+    def admin_token(client: TestClient, test_data):
+        response = client.post(
+            "/auth/login",
+            data={"username": "admin@example.com", "password": "admin123"},
+        )
+>       return response.json()["access_token"]
+E       KeyError: 'access_token'
+
+tests/test_reports.py:129: KeyError
+=============================== warnings summary ===============================
+venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/yash-nikumbha/codebase2/student-management-api/venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+venv/lib/python3.12/site-packages/reportlab/lib/rl_safe_eval.py:12
+  /home/yash-nikumbha/codebase2/student-management-api/venv/lib/python3.12/site-packages/reportlab/lib/rl_safe_eval.py:12: DeprecationWarning: ast.NameConstant is deprecated and will be removed in Python 3.14; use ast.Constant instead
+    haveNameConstant = hasattr(ast,'NameConstant')
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+ERROR tests/test_reports.py::test_student_report_returns_filtered_students - ...
+ERROR tests/test_reports.py::test_student_report_filters_by_course - KeyError...
+ERROR tests/test_reports.py::test_student_report_filters_by_status - KeyError...
+ERROR tests/test_reports.py::test_attendance_report_calculations - KeyError: ...
+ERROR tests/test_reports.py::test_attendance_report_detailed_mode - KeyError:...
+ERROR tests/test_reports.py::test_fee_report_balances - KeyError: 'access_token'
+ERROR tests/test_reports.py::test_fee_report_status_filter - KeyError: 'acces...
+ERROR tests/test_reports.py::test_course_report_counts - KeyError: 'access_to...
+ERROR tests/test_reports.py::test_csv_export_status_and_content_type - KeyErr...
+ERROR tests/test_reports.py::test_pdf_export_status_and_content_type - KeyErr...
+ERROR tests/test_reports.py::test_date_range_validation - KeyError: 'access_t...
+ERROR tests/test_reports.py::test_staff_can_access_reports - KeyError: 'acces...
+ERROR tests/test_reports.py::test_staff_can_export_csv - KeyError: 'access_to...
+ERROR tests/test_reports.py::test_staff_can_export_pdf - KeyError: 'access_to...
+ERROR tests/test_reports.py::test_attendance_report_date_filter - KeyError: '...
+ERROR tests/test_reports.py::test_fee_report_due_date_filter - KeyError: 'acc...
+ERROR tests/test_reports.py::test_course_report_search - KeyError: 'access_to...
+ERROR tests/test_reports.py::test_course_report_active_filter - KeyError: 'ac...
+ERROR tests/test_reports.py::test_attendance_csv_export - KeyError: 'access_t...
+ERROR tests/test_reports.py::test_fee_csv_export - KeyError: 'access_token'
+ERROR tests/test_reports.py::test_course_csv_export - KeyError: 'access_token'
+ERROR tests/test_reports.py::test_attendance_pdf_export - KeyError: 'access_t...
+ERROR tests/test_reports.py::test_fee_pdf_export - KeyError: 'access_token'
+ERROR tests/test_reports.py::test_course_pdf_export - KeyError: 'access_token'
+=================== 1 passed, 2 warnings, 24 errors in 5.42s ===================
