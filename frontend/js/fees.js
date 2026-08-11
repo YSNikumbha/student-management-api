@@ -193,18 +193,33 @@ function renderFeeTable() {
     const studentName = fee.student_name || (student ? `${student.first_name} ${student.last_name}` : `Student #${fee.student_id}`);
     const studentCode = fee.student_code || student?.student_code || "";
     const balance = Number(fee.balance || 0);
+    const total = Number(fee.total_amount || 0);
+    const paid = Number(fee.paid_amount || 0);
     const canRecordPayment = balance > 0;
+    const progressPercent = total > 0 ? Math.round((paid / total) * 100) : 0;
+    const dueDate = new Date(fee.due_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDateText = getDueDateText(dueDate, today);
+
     const adminActions = currentUser?.role === "admin"
       ? `
-          <button class="btn btn-sm btn-outline-primary btn-icon" type="button" data-action="edit" data-id="${fee.id}" aria-label="Edit fee">
+          <button class="btn btn-sm btn-action-view" type="button" data-action="details" data-id="${fee.id}" aria-label="View fee details">
+            <i class="bi bi-eye"></i>
+          </button>
+          <button class="btn btn-sm btn-action-edit" type="button" data-action="edit" data-id="${fee.id}" aria-label="Edit fee">
             <i class="bi bi-pencil"></i>
           </button>
           <button class="btn btn-sm btn-outline-danger btn-icon" type="button" data-action="delete" data-id="${fee.id}" aria-label="Delete fee">
             <i class="bi bi-trash"></i>
           </button>
         `
-      : "";
-    const paymentButton = canRecordPayment
+      : `
+          <button class="btn btn-sm btn-action-view" type="button" data-action="details" data-id="${fee.id}" aria-label="View fee details">
+            <i class="bi bi-eye"></i>
+          </button>
+        `;
+    const paymentButton = canRecordPayment && currentUser?.role === "admin"
       ? `
           <button class="btn btn-sm btn-outline-success btn-icon" type="button" data-action="pay" data-id="${fee.id}" aria-label="Record payment">
             <i class="bi bi-cash-coin"></i>
@@ -225,13 +240,16 @@ function renderFeeTable() {
         <td class="money-cell">${AdminApp.formatCurrency(fee.total_amount)}</td>
         <td class="money-cell">${AdminApp.formatCurrency(fee.paid_amount)}</td>
         <td class="money-cell ${balance > 0 ? "balance-due" : "balance-paid"}">${AdminApp.formatCurrency(fee.balance)}</td>
-        <td>${AdminApp.escapeHtml(fee.due_date)}</td>
+        <td>${dueDateText}</td>
         <td>${AdminApp.feeStatusBadge(fee.status)}</td>
+        <td>
+          <div class="progress" style="height: 6px; margin-bottom: 0.5rem;">
+            <div class="progress-bar ${progressPercent === 100 ? 'bg-success' : 'bg-primary'}" style="width: ${progressPercent}%"></div>
+          </div>
+          <small class="text-muted">${progressPercent}% paid</small>
+        </td>
         <td class="text-end">
-          <span class="table-actions wide-actions">
-            <button class="btn btn-sm btn-outline-secondary btn-icon" type="button" data-action="details" data-id="${fee.id}" aria-label="View fee details">
-              <i class="bi bi-receipt"></i>
-            </button>
+          <span class="action-buttons">
             ${paymentButton}
             ${adminActions}
           </span>
@@ -239,6 +257,21 @@ function renderFeeTable() {
       </tr>
     `;
   }).join("");
+}
+
+function getDueDateText(dueDate, today) {
+  const diffTime = dueDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays < 0) {
+    return `<span class="text-danger fw-semibold">Overdue by ${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''}</span>`;
+  } else if (diffDays === 0) {
+    return `<span class="text-warning fw-semibold">Due today</span>`;
+  } else if (diffDays <= 7) {
+    return `<span class="text-warning">Due in ${diffDays} day${diffDays !== 1 ? 's' : ''}</span>`;
+  } else {
+    return AdminApp.escapeHtml(dueDate.toISOString().slice(0, 10));
+  }
 }
 
 function renderFeePagination() {
@@ -281,17 +314,67 @@ function prepareEditFee(feeId) {
 async function saveFee(event) {
   event.preventDefault();
 
+  const form = document.querySelector("#fee-form");
   const saveButton = document.querySelector("#save-fee");
   const feeId = document.querySelector("#fee-id").value;
+
+  AdminApp.clearFormErrors(form);
+
+  const titleInput = document.querySelector("#fee-title");
+  const descriptionInput = document.querySelector("#fee-description");
+  const totalAmountInput = document.querySelector("#fee-total-amount");
+  const dueDateInput = document.querySelector("#fee-due-date");
+  const studentInput = document.querySelector("#fee-student");
+
+  const titleError = AdminApp.validateName(titleInput.value, "Fee title");
+  const descriptionError = descriptionInput.value.trim() && descriptionInput.value.trim().length > 500
+    ? "Description must be 500 characters or less."
+    : null;
+  const totalAmountError = totalAmountInput.value ? null : "Total amount is required.";
+  const dueDateError = dueDateInput.value ? null : "Due date is required.";
+  const studentError = !feeId && !studentInput.value ? "Student is required." : null;
+
+  let hasError = false;
+
+  if (titleError) {
+    AdminApp.showFieldError(titleInput, titleError);
+    hasError = true;
+  }
+
+  if (descriptionError) {
+    AdminApp.showFieldError(descriptionInput, descriptionError);
+    hasError = true;
+  }
+
+  if (totalAmountError) {
+    AdminApp.showFieldError(totalAmountInput, totalAmountError);
+    hasError = true;
+  }
+
+  if (dueDateError) {
+    AdminApp.showFieldError(dueDateInput, dueDateError);
+    hasError = true;
+  }
+
+  if (studentError) {
+    AdminApp.showFieldError(studentInput, studentError);
+    hasError = true;
+  }
+
+  if (hasError) {
+    AdminApp.focusFirstInvalidField(form);
+    return;
+  }
+
   const payload = {
-    title: document.querySelector("#fee-title").value.trim(),
-    description: document.querySelector("#fee-description").value.trim() || null,
-    total_amount: document.querySelector("#fee-total-amount").value,
-    due_date: document.querySelector("#fee-due-date").value,
+    title: titleInput.value.trim(),
+    description: descriptionInput.value.trim() || null,
+    total_amount: totalAmountInput.value,
+    due_date: dueDateInput.value,
   };
 
   if (!feeId) {
-    payload.student_id = Number(document.querySelector("#fee-student").value);
+    payload.student_id = Number(studentInput.value);
   }
 
   AdminApp.clearAlert("#fee-form-alert");
@@ -303,18 +386,18 @@ async function saveFee(event) {
         method: "PUT",
         body: payload,
       });
-      AdminApp.showAlert("#fees-alert", "Fee record updated successfully.", "success");
+      AdminApp.showToast("success", "Fee record updated successfully.");
     } else {
       await AdminApp.authFetch("/fees", {
         method: "POST",
         body: payload,
       });
       feeState.page = 1;
-      AdminApp.showAlert("#fees-alert", "Fee assigned successfully.", "success");
+      AdminApp.showToast("success", "Fee assigned successfully.");
     }
 
     feeModal.hide();
-    document.querySelector("#fee-form").reset();
+    form.reset();
     await refreshFeesAndSummary();
   } catch (error) {
     AdminApp.showAlert("#fee-form-alert", error.message, "danger");
@@ -346,14 +429,22 @@ async function handleFeeAction(event) {
     return;
   }
 
-  if (!window.confirm("Are you sure you want to delete this fee record?")) {
+  const confirmed = await AdminApp.confirmAction({
+    title: "Delete Fee Record",
+    message: "Are you sure you want to delete this fee record? This action cannot be undone.",
+    confirmLabel: "Delete",
+    cancelLabel: "Cancel",
+    danger: true,
+  });
+
+  if (!confirmed) {
     return;
   }
 
   button.disabled = true;
   try {
     await AdminApp.authFetch(`/fees/${feeId}`, { method: "DELETE" });
-    AdminApp.showAlert("#fees-alert", "Fee record deleted successfully.", "success");
+    AdminApp.showToast("success", "Fee record deleted successfully.");
     await refreshFeesAndSummary();
   } catch (error) {
     const message = error.status === 409 && error.message.includes("payments")
@@ -551,14 +642,22 @@ async function handlePaymentAction(event) {
     return;
   }
 
-  if (!window.confirm("Are you sure you want to delete this payment?")) {
+  const confirmed = await AdminApp.confirmAction({
+    title: "Delete Payment",
+    message: "Are you sure you want to delete this payment? This action cannot be undone.",
+    confirmLabel: "Delete",
+    cancelLabel: "Cancel",
+    danger: true,
+  });
+
+  if (!confirmed) {
     return;
   }
 
   button.disabled = true;
   try {
     await AdminApp.authFetch(`/payments/${button.dataset.id}`, { method: "DELETE" });
-    AdminApp.showAlert("#fee-details-alert", "Payment deleted successfully.", "success");
+    AdminApp.showToast("success", "Payment deleted successfully.");
     await refreshFeesAndSummary();
     if (activeDetailsFeeId !== null) {
       await showFeeDetails(activeDetailsFeeId);

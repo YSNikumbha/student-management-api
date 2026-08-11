@@ -1,6 +1,7 @@
 let students = [];
 let courses = [];
 let studentModal;
+let studentViewModal;
 let studentAttendanceModal;
 let studentFeesModal;
 let currentUser;
@@ -17,6 +18,7 @@ let studentState = {
 
 document.addEventListener("DOMContentLoaded", () => {
   studentModal = new bootstrap.Modal(document.querySelector("#studentModal"));
+  studentViewModal = new bootstrap.Modal(document.querySelector("#studentViewModal"));
   studentAttendanceModal = new bootstrap.Modal(document.querySelector("#studentAttendanceModal"));
   studentFeesModal = new bootstrap.Modal(document.querySelector("#studentFeesModal"));
   currentUser = AdminApp.getCurrentUser();
@@ -80,7 +82,7 @@ async function loadStudents() {
   const tableBody = document.querySelector("#students-table-body");
   tableBody.innerHTML = `
     <tr>
-      <td colspan="8" class="text-center text-muted py-4">Loading...</td>
+      <td colspan="7" class="text-center text-muted py-4">Loading...</td>
     </tr>
   `;
 
@@ -135,7 +137,7 @@ function renderStudents() {
   if (students.length === 0) {
     tableBody.innerHTML = `
       <tr>
-        <td colspan="8" class="text-center text-muted py-4">No students match the selected filters.</td>
+        <td colspan="7" class="text-center text-muted py-4">No students match the selected filters.</td>
       </tr>
     `;
     return;
@@ -156,23 +158,19 @@ function renderStudents() {
 
     return `
       <tr>
-        <td>${AdminApp.escapeHtml(student.id)}</td>
         <td>${AdminApp.escapeHtml(student.student_code)}</td>
         <td>${AdminApp.escapeHtml(fullName)}</td>
+        <td>${AdminApp.escapeHtml(courseName)}</td>
         <td>${AdminApp.escapeHtml(student.email)}</td>
         <td>${AdminApp.escapeHtml(student.phone || "")}</td>
-        <td>${AdminApp.escapeHtml(courseName)}</td>
         <td>${AdminApp.statusBadge(student.status)}</td>
         <td class="text-end">
-          <span class="table-actions">
-            <button class="btn btn-sm btn-outline-secondary btn-icon" type="button" data-action="attendance" data-id="${student.id}" aria-label="View attendance">
-              <i class="bi bi-calendar-check"></i>
+          <span class="action-buttons">
+            <button class="btn btn-sm btn-action-view" type="button" data-action="view" data-id="${student.id}" aria-label="View student">
+              <i class="bi bi-eye"></i> View
             </button>
-            <button class="btn btn-sm btn-outline-secondary btn-icon" type="button" data-action="fees" data-id="${student.id}" aria-label="View fees">
-              <i class="bi bi-cash-coin"></i>
-            </button>
-            <button class="btn btn-sm btn-outline-primary btn-icon" type="button" data-action="edit" data-id="${student.id}" aria-label="Edit student">
-              <i class="bi bi-pencil"></i>
+            <button class="btn btn-sm btn-action-edit" type="button" data-action="edit" data-id="${student.id}" aria-label="Edit student">
+              <i class="bi bi-pencil"></i> Edit
             </button>
             ${deleteButton}
           </span>
@@ -225,16 +223,65 @@ function prepareEditStudent(studentId) {
 async function saveStudent(event) {
   event.preventDefault();
 
+  const form = document.querySelector("#student-form");
   const saveButton = document.querySelector("#save-student");
   const studentId = document.querySelector("#student-id").value;
   const courseValue = document.querySelector("#student-course").value;
+
+  AdminApp.clearFormErrors(form);
+
+  const firstNameInput = document.querySelector("#student-first-name");
+  const lastNameInput = document.querySelector("#student-last-name");
+  const codeInput = document.querySelector("#student-code");
+  const emailInput = document.querySelector("#student-email");
+  const phoneInput = document.querySelector("#student-phone");
+  const dobInput = document.querySelector("#student-date-of-birth");
+
+  const firstNameError = AdminApp.validateName(firstNameInput.value, "First name");
+  const lastNameError = AdminApp.validateName(lastNameInput.value, "Last name");
+  const codeError = AdminApp.validateStudentCode(codeInput.value);
+  const emailError = AdminApp.validateEmail(emailInput.value);
+  const phoneError = AdminApp.validatePhone(phoneInput.value);
+  const dobError = AdminApp.validateDateNotFuture(dobInput.value, "Date of birth");
+
+  let hasError = false;
+  if (firstNameError) {
+    AdminApp.showFieldError(firstNameInput, firstNameError);
+    hasError = true;
+  }
+  if (lastNameError) {
+    AdminApp.showFieldError(lastNameInput, lastNameError);
+    hasError = true;
+  }
+  if (codeError) {
+    AdminApp.showFieldError(codeInput, codeError);
+    hasError = true;
+  }
+  if (emailError) {
+    AdminApp.showFieldError(emailInput, emailError);
+    hasError = true;
+  }
+  if (phoneError) {
+    AdminApp.showFieldError(phoneInput, phoneError);
+    hasError = true;
+  }
+  if (dobError) {
+    AdminApp.showFieldError(dobInput, dobError);
+    hasError = true;
+  }
+
+  if (hasError) {
+    AdminApp.focusFirstInvalidField(form);
+    return;
+  }
+
   const payload = {
-    student_code: document.querySelector("#student-code").value.trim(),
-    first_name: document.querySelector("#student-first-name").value.trim(),
-    last_name: document.querySelector("#student-last-name").value.trim(),
-    email: document.querySelector("#student-email").value.trim(),
-    phone: document.querySelector("#student-phone").value.trim() || null,
-    date_of_birth: document.querySelector("#student-date-of-birth").value || null,
+    student_code: codeInput.value.trim(),
+    first_name: firstNameInput.value.trim(),
+    last_name: lastNameInput.value.trim(),
+    email: emailInput.value.trim(),
+    phone: phoneInput.value.trim() || null,
+    date_of_birth: dobInput.value || null,
     course_id: courseValue ? Number(courseValue) : null,
   };
 
@@ -251,18 +298,18 @@ async function saveStudent(event) {
         method: "PUT",
         body: payload,
       });
-      AdminApp.showAlert("#students-alert", "Student updated successfully.", "success");
+      AdminApp.showToast("success", "Student updated successfully.");
     } else {
       await AdminApp.authFetch("/students", {
         method: "POST",
         body: payload,
       });
       studentState.page = 1;
-      AdminApp.showAlert("#students-alert", "Student created successfully.", "success");
+      AdminApp.showToast("success", "Student created successfully.");
     }
 
     studentModal.hide();
-    document.querySelector("#student-form").reset();
+    form.reset();
     await loadStudents();
   } catch (error) {
     AdminApp.showAlert("#student-form-alert", error.message, "danger");
@@ -278,6 +325,11 @@ async function handleStudentAction(event) {
   }
 
   const studentId = Number(button.dataset.id);
+  if (button.dataset.action === "view") {
+    showStudentDetails(studentId);
+    return;
+  }
+
   if (button.dataset.action === "edit") {
     prepareEditStudent(studentId);
     return;
@@ -293,20 +345,104 @@ async function handleStudentAction(event) {
     return;
   }
 
-  if (!window.confirm("Are you sure you want to delete this student?")) {
+  if (button.dataset.action === "delete") {
+    const confirmed = await AdminApp.confirmAction({
+      title: "Delete Student",
+      message: "Are you sure you want to delete this student? This action cannot be undone.",
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+      danger: true,
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    button.disabled = true;
+    try {
+      await AdminApp.authFetch(`/students/${studentId}`, { method: "DELETE" });
+      AdminApp.showToast("success", "Student deleted successfully.");
+      await loadStudents();
+    } catch (error) {
+      AdminApp.showAlert("#students-alert", error.message, "danger");
+    } finally {
+      button.disabled = false;
+    }
+  }
+}
+
+async function showStudentDetails(studentId) {
+  const student = students.find((item) => item.id === studentId);
+  if (!student) {
+    AdminApp.showAlert("#students-alert", "Student not found.", "danger");
     return;
   }
 
-  button.disabled = true;
-  try {
-    await AdminApp.authFetch(`/students/${studentId}`, { method: "DELETE" });
-    AdminApp.showAlert("#students-alert", "Student deleted successfully.", "success");
-    await loadStudents();
-  } catch (error) {
-    AdminApp.showAlert("#students-alert", error.message, "danger");
-  } finally {
-    button.disabled = false;
-  }
+  const course = courses.find((c) => c.id === student.course_id);
+  const fullName = `${student.first_name} ${student.last_name}`;
+  const courseName = course ? `${course.name} (${course.code})` : "Not Assigned";
+
+  document.querySelector("#studentViewModalTitle").textContent = `${fullName} - ${student.student_code}`;
+  document.querySelector("#student-view-content").innerHTML = `
+    <div class="student-view-section">
+      <h6 class="student-view-section-title">Personal Information</h6>
+      <div class="student-view-grid">
+        <div class="student-view-item">
+          <span class="student-view-label">Full Name</span>
+          <span class="student-view-value">${AdminApp.escapeHtml(fullName)}</span>
+        </div>
+        <div class="student-view-item">
+          <span class="student-view-label">Date of Birth</span>
+          <span class="student-view-value">${student.date_of_birth ? AdminApp.escapeHtml(student.date_of_birth) : "Not provided"}</span>
+        </div>
+        <div class="student-view-item">
+          <span class="student-view-label">Status</span>
+          <span class="student-view-value">${AdminApp.statusBadge(student.status)}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="student-view-section">
+      <h6 class="student-view-section-title">Academic Information</h6>
+      <div class="student-view-grid">
+        <div class="student-view-item">
+          <span class="student-view-label">Student Code</span>
+          <span class="student-view-value">${AdminApp.escapeHtml(student.student_code)}</span>
+        </div>
+        <div class="student-view-item">
+          <span class="student-view-label">Course</span>
+          <span class="student-view-value">${AdminApp.escapeHtml(courseName)}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="student-view-section">
+      <h6 class="student-view-section-title">Contact Information</h6>
+      <div class="student-view-grid">
+        <div class="student-view-item">
+          <span class="student-view-label">Email</span>
+          <span class="student-view-value">${AdminApp.escapeHtml(student.email)}</span>
+        </div>
+        <div class="student-view-item">
+          <span class="student-view-label">Phone</span>
+          <span class="student-view-value">${student.phone ? AdminApp.escapeHtml(student.phone) : "Not provided"}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="student-view-section">
+      <h6 class="student-view-section-title">Additional Information</h6>
+      <div class="student-view-grid">
+        <div class="student-view-item">
+          <span class="student-view-label">Created Date</span>
+          <span class="student-view-value">${student.created_at ? AdminApp.escapeHtml(student.created_at.slice(0, 10)) : "N/A"}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  AdminApp.clearAlert("#student-view-alert");
+  studentViewModal.show();
 }
 
 async function showStudentFees(studentId) {

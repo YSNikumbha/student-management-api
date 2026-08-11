@@ -138,3 +138,138 @@ def test_course_pagination(client: TestClient, admin_headers: dict) -> None:
     assert "page_size" in data
     assert "total_items" in data
     assert "total_pages" in data
+
+
+def test_create_course_invalid_code(client: TestClient, admin_headers: dict) -> None:
+    """Test creating course with invalid code returns 422."""
+    response = client.post(
+        "/courses",
+        headers=admin_headers,
+        json={
+            "code": "INVALID@CODE!",
+            "name": "Valid Course Name",
+        },
+    )
+    assert response.status_code == 422
+    assert "code" in response.json()["detail"][0]["msg"].lower()
+
+
+def test_create_course_blank_name(client: TestClient, admin_headers: dict) -> None:
+    """Test creating course with blank name returns 422."""
+    response = client.post(
+        "/courses",
+        headers=admin_headers,
+        json={
+            "code": "COURSE1",
+            "name": "   ",
+        },
+    )
+    assert response.status_code == 422
+    assert "name" in response.json()["detail"][0]["msg"].lower()
+
+
+def test_create_course_name_too_short(client: TestClient, admin_headers: dict) -> None:
+    """Test creating course with name too short returns 422."""
+    response = client.post(
+        "/courses",
+        headers=admin_headers,
+        json={
+            "code": "COURSE1",
+            "name": "AB",
+        },
+    )
+    assert response.status_code == 422
+    assert "name" in response.json()["detail"][0]["msg"].lower()
+
+
+def test_create_course_duration_zero(client: TestClient, admin_headers: dict) -> None:
+    """Test creating course with duration 0 returns 422."""
+    response = client.post(
+        "/courses",
+        headers=admin_headers,
+        json={
+            "code": "COURSE1",
+            "name": "Valid Course Name",
+            "duration_months": 0,
+        },
+    )
+    assert response.status_code == 422
+    assert "duration" in response.json()["detail"][0]["msg"].lower()
+
+
+def test_create_course_duration_negative(client: TestClient, admin_headers: dict) -> None:
+    """Test creating course with negative duration returns 422."""
+    response = client.post(
+        "/courses",
+        headers=admin_headers,
+        json={
+            "code": "COURSE1",
+            "name": "Valid Course Name",
+            "duration_months": -3,
+        },
+    )
+    assert response.status_code == 422
+    assert "duration" in response.json()["detail"][0]["msg"].lower()
+
+
+def test_create_course_duration_too_large(client: TestClient, admin_headers: dict) -> None:
+    """Test creating course with duration > 120 months returns 422."""
+    response = client.post(
+        "/courses",
+        headers=admin_headers,
+        json={
+            "code": "COURSE1",
+            "name": "Valid Course Name",
+            "duration_months": 121,
+        },
+    )
+    assert response.status_code == 422
+    assert "duration" in response.json()["detail"][0]["msg"].lower()
+
+
+def test_create_course_valid_edge_cases(client: TestClient, admin_headers: dict) -> None:
+    """Test creating course with valid edge cases."""
+    # Test with minimum length code and name
+    response1 = client.post(
+        "/courses",
+        headers=admin_headers,
+        json={
+            "code": "AB",
+            "name": "ABC",
+            "description": "A" * 500,
+            "duration_months": 120,
+            "is_active": True,
+        },
+    )
+    assert response1.status_code == 201
+    data1 = response1.json()
+    assert data1["code"] == "AB"
+    assert data1["name"] == "ABC"
+    assert data1["duration_months"] == 120
+
+    # Test code normalization to uppercase
+    response2 = client.post(
+        "/courses",
+        headers=admin_headers,
+        json={
+            "code": "lowercase",
+            "name": "Lowercase Code Test",
+        },
+    )
+    assert response2.status_code == 201
+    data2 = response2.json()
+    assert data2["code"] == "LOWERCASE"
+
+    # Test optional fields
+    response3 = client.post(
+        "/courses",
+        headers=admin_headers,
+        json={
+            "code": "MINIMAL",
+            "name": "Minimal Course",
+        },
+    )
+    assert response3.status_code == 201
+    data3 = response3.json()
+    assert data3["description"] is None
+    assert data3["duration_months"] is None

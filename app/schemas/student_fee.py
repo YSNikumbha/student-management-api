@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.payment import PaymentResponse
 
@@ -21,6 +21,28 @@ class StudentFeeCreate(BaseModel):
     total_amount: Decimal = Field(gt=Decimal("0.00"), max_digits=12, decimal_places=2)
     due_date: date
 
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value: str) -> str:
+        """Validate and normalize title."""
+        if not value or not value.strip():
+            raise ValueError("Fee title is required.")
+        normalized = value.strip()
+        if len(normalized) < 3 or len(normalized) > 150:
+            raise ValueError("Fee title must be between 3 and 150 characters.")
+        return normalized
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: str | None) -> str | None:
+        """Validate and normalize description."""
+        if value is None or value.strip() == "":
+            return None
+        normalized = value.strip()
+        if len(normalized) > 500:
+            raise ValueError("Description must be 500 characters or less.")
+        return normalized
+
 
 class StudentFeeUpdate(BaseModel):
     title: str | None = Field(default=None, max_length=150)
@@ -32,6 +54,30 @@ class StudentFeeUpdate(BaseModel):
         decimal_places=2,
     )
     due_date: date | None = None
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value: str | None) -> str | None:
+        """Validate and normalize title."""
+        if value is None:
+            return None
+        if not value or not value.strip():
+            raise ValueError("Fee title is required.")
+        normalized = value.strip()
+        if len(normalized) < 3 or len(normalized) > 150:
+            raise ValueError("Fee title must be between 3 and 150 characters.")
+        return normalized
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: str | None) -> str | None:
+        """Validate and normalize description."""
+        if value is None or value.strip() == "":
+            return None
+        normalized = value.strip()
+        if len(normalized) > 500:
+            raise ValueError("Description must be 500 characters or less.")
+        return normalized
 
 
 class StudentFeeResponse(BaseModel):

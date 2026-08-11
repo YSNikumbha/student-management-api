@@ -25,67 +25,72 @@
             </div>
 
             <div class="report-generator">
-              <div class="row g-3 mb-3">
-                <div class="col-md-4">
-                  <label for="report-type" class="form-label">Report Type</label>
-                  <select id="report-type" class="form-select">
-                    <option value="students">Student Report</option>
-                    <option value="attendance">Attendance Report</option>
-                    <option value="fees">Fee Report</option>
-                    <option value="courses">Course Report</option>
-                  </select>
+              <div class="report-type-selector mb-3">
+                <div class="btn-group" role="group">
+                  <button type="button" class="btn btn-outline-primary report-type-btn active" data-report-type="students">
+                    <i class="bi bi-people"></i> Students
+                  </button>
+                  <button type="button" class="btn btn-outline-primary report-type-btn" data-report-type="attendance">
+                    <i class="bi bi-calendar-check"></i> Attendance
+                  </button>
+                  <button type="button" class="btn btn-outline-primary report-type-btn" data-report-type="fees">
+                    <i class="bi bi-cash-coin"></i> Fees
+                  </button>
+                  <button type="button" class="btn btn-outline-primary report-type-btn" data-report-type="courses">
+                    <i class="bi bi-journal-bookmark"></i> Courses
+                  </button>
                 </div>
               </div>
 
               <div id="report-filters" class="filter-section mb-3">
                 <div class="row g-3">
-                  <div class="col-md-4">
+                  <div class="col-md-4 filter-field" data-filter="search">
                     <label for="report-search" class="form-label">Search</label>
                     <input id="report-search" class="form-control" type="search" placeholder="Search...">
                   </div>
-                  <div class="col-md-4">
+                  <div class="col-md-4 filter-field" data-filter="course">
                     <label for="report-course" class="form-label">Course</label>
                     <select id="report-course" class="form-select">
                       <option value="">All courses</option>
                     </select>
                   </div>
-                  <div class="col-md-4">
+                  <div class="col-md-4 filter-field" data-filter="status">
                     <label for="report-status" class="form-label">Status</label>
                     <select id="report-status" class="form-select">
                       <option value="">All</option>
                     </select>
                   </div>
-                  <div class="col-md-4">
+                  <div class="col-md-4 filter-field" data-filter="student">
                     <label for="report-student" class="form-label">Student</label>
                     <select id="report-student" class="form-select">
                       <option value="">All students</option>
                     </select>
                   </div>
-                  <div class="col-md-4">
+                  <div class="col-md-4 filter-field" data-filter="start-date">
                     <label for="report-start-date" class="form-label">Start Date</label>
                     <input id="report-start-date" class="form-control" type="date">
                   </div>
-                  <div class="col-md-4">
+                  <div class="col-md-4 filter-field" data-filter="end-date">
                     <label for="report-end-date" class="form-label">End Date</label>
                     <input id="report-end-date" class="form-control" type="date">
                   </div>
-                  <div class="col-md-4">
+                  <div class="col-md-4 filter-field" data-filter="created-from">
                     <label for="report-created-from" class="form-label">Created From</label>
                     <input id="report-created-from" class="form-control" type="date">
                   </div>
-                  <div class="col-md-4">
+                  <div class="col-md-4 filter-field" data-filter="created-to">
                     <label for="report-created-to" class="form-label">Created To</label>
                     <input id="report-created-to" class="form-control" type="date">
                   </div>
-                  <div class="col-md-4">
+                  <div class="col-md-4 filter-field" data-filter="due-from">
                     <label for="report-due-from" class="form-label">Due From</label>
                     <input id="report-due-from" class="form-control" type="date">
                   </div>
-                  <div class="col-md-4">
+                  <div class="col-md-4 filter-field" data-filter="due-to">
                     <label for="report-due-to" class="form-label">Due To</label>
                     <input id="report-due-to" class="form-control" type="date">
                   </div>
-                  <div class="col-md-4">
+                  <div class="col-md-4 filter-field" data-filter="active">
                     <label for="report-active" class="form-label">Active Status</label>
                     <select id="report-active" class="form-select">
                       <option value="">All</option>
@@ -93,7 +98,7 @@
                       <option value="false">Inactive</option>
                     </select>
                   </div>
-                  <div class="col-md-4 d-flex align-items-end">
+                  <div class="col-md-4 filter-field d-flex align-items-end" data-filter="detail">
                     <div class="form-check">
                       <input id="report-detail" class="form-check-input" type="checkbox">
                       <label for="report-detail" class="form-check-label">Detailed attendance</label>
@@ -118,8 +123,13 @@
               </div>
 
               <div id="report-loading" class="d-none">
-                <div class="alert alert-info">Generating report...</div>
+                <div class="alert alert-info">
+                  <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                  Generating report...
+                </div>
               </div>
+
+              <div id="report-summary" class="report-summary d-none"></div>
 
               <div id="report-result" class="d-none">
                 <div class="table-responsive">

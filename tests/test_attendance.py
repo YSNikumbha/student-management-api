@@ -284,3 +284,96 @@ def test_attendance_pagination(client: TestClient, admin_headers: dict, test_stu
     assert "items" in data
     assert "total_items" in data
     assert len(data["items"]) <= 2
+
+
+def test_create_attendance_future_date(client: TestClient, admin_headers: dict, test_student) -> None:
+    """Test creating attendance with future date returns 422."""
+    future_date = date.today().replace(year=date.today().year + 1)
+    response = client.post(
+        "/attendance",
+        headers=admin_headers,
+        json={
+            "student_id": test_student.id,
+            "date": future_date.isoformat(),
+            "status": "present",
+        },
+    )
+    assert response.status_code == 422
+    assert "future" in response.json()["detail"][0]["msg"].lower()
+
+
+def test_create_attendance_invalid_status(client: TestClient, admin_headers: dict, test_student) -> None:
+    """Test creating attendance with invalid status returns 422."""
+    response = client.post(
+        "/attendance",
+        headers=admin_headers,
+        json={
+            "student_id": test_student.id,
+            "date": "2025-01-25",
+            "status": "invalid_status",
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_create_attendance_oversized_remarks(client: TestClient, admin_headers: dict, test_student) -> None:
+    """Test creating attendance with remarks > 500 chars returns 422."""
+    response = client.post(
+        "/attendance",
+        headers=admin_headers,
+        json={
+            "student_id": test_student.id,
+            "date": "2025-01-26",
+            "status": "present",
+            "remarks": "A" * 501,
+        },
+    )
+    assert response.status_code == 422
+    assert "500" in response.json()["detail"][0]["msg"]
+
+
+def test_bulk_attendance_future_date(client: TestClient, admin_headers: dict, test_course_with_students) -> None:
+    """Test bulk attendance with future date returns 422."""
+    future_date = date.today().replace(year=date.today().year + 1)
+    students = test_course_with_students.students
+    
+    response = client.post(
+        "/attendance/bulk",
+        headers=admin_headers,
+        json={
+            "date": future_date.isoformat(),
+            "records": [
+                {
+                    "student_id": students[0].id,
+                    "status": "present",
+                },
+            ],
+        },
+    )
+    assert response.status_code == 422
+    assert "future" in response.json()["detail"][0]["msg"].lower()
+
+
+def test_bulk_attendance_duplicate_students(client: TestClient, admin_headers: dict, test_course_with_students) -> None:
+    """Test bulk attendance with duplicate students returns 409."""
+    students = test_course_with_students.students
+    
+    response = client.post(
+        "/attendance/bulk",
+        headers=admin_headers,
+        json={
+            "date": "2025-01-27",
+            "records": [
+                {
+                    "student_id": students[0].id,
+                    "status": "present",
+                },
+                {
+                    "student_id": students[0].id,
+                    "status": "absent",
+                },
+            ],
+        },
+    )
+    assert response.status_code == 409
+    assert "duplicate" in response.json()["detail"].lower()

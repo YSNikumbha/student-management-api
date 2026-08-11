@@ -61,19 +61,18 @@
               <table class="table align-middle table-hover">
                 <thead>
                   <tr>
-                    <th>ID</th>
                     <th>Student Code</th>
                     <th>Name</th>
+                    <th>Course</th>
                     <th>Email</th>
                     <th>Phone</th>
-                    <th>Course</th>
                     <th>Status</th>
                     <th class="text-end">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="students-table-body">
                   <tr>
-                    <td colspan="8" class="text-center text-muted py-4">Loading...</td>
+                    <td colspan="7" class="text-center text-muted py-4">Loading...</td>
                   </tr>
                 </tbody>
               </table>
@@ -98,41 +97,64 @@
               <div id="student-form-alert"></div>
               <input id="student-id" type="hidden">
 
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label for="student-code" class="form-label">Student Code</label>
-                  <input id="student-code" class="form-control" type="text" required maxlength="50">
+              <div class="form-section">
+                <h6 class="form-section-title">Personal Details</h6>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label for="student-first-name" class="form-label">First Name</label>
+                    <input id="student-first-name" class="form-control" type="text" required maxlength="100">
+                    <div class="field-error"></div>
+                  </div>
+                  <div class="col-md-6">
+                    <label for="student-last-name" class="form-label">Last Name</label>
+                    <input id="student-last-name" class="form-control" type="text" required maxlength="100">
+                    <div class="field-error"></div>
+                  </div>
+                  <div class="col-md-6">
+                    <label for="student-date-of-birth" class="form-label">Date of Birth</label>
+                    <input id="student-date-of-birth" class="form-control" type="date">
+                    <div class="field-error"></div>
+                  </div>
                 </div>
-                <div class="col-md-6">
-                  <label for="student-email" class="form-label">Email</label>
-                  <input id="student-email" class="form-control" type="email" required maxlength="255">
+              </div>
+
+              <div class="form-section">
+                <h6 class="form-section-title">Academic Details</h6>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label for="student-code" class="form-label">Student Code</label>
+                    <input id="student-code" class="form-control" type="text" required maxlength="50">
+                    <div class="field-error"></div>
+                  </div>
+                  <div class="col-md-6">
+                    <label for="student-course" class="form-label">Course</label>
+                    <select id="student-course" class="form-select">
+                      <option value="">No Course</option>
+                    </select>
+                  </div>
+                  <div id="student-status-field" class="col-md-6 d-none">
+                    <label for="student-status" class="form-label">Status</label>
+                    <select id="student-status" class="form-select">
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
                 </div>
-                <div class="col-md-6">
-                  <label for="student-first-name" class="form-label">First Name</label>
-                  <input id="student-first-name" class="form-control" type="text" required maxlength="100">
-                </div>
-                <div class="col-md-6">
-                  <label for="student-last-name" class="form-label">Last Name</label>
-                  <input id="student-last-name" class="form-control" type="text" required maxlength="100">
-                </div>
-                <div class="col-md-6">
-                  <label for="student-phone" class="form-label">Phone</label>
-                  <input id="student-phone" class="form-control" type="text" maxlength="20">
-                </div>
-                <div class="col-md-6">
-                  <label for="student-date-of-birth" class="form-label">Date of Birth</label>
-                  <input id="student-date-of-birth" class="form-control" type="date">
-                </div>
-                <div class="col-md-6">
-                  <label for="student-course" class="form-label">Course</label>
-                  <select id="student-course" class="form-select"></select>
-                </div>
-                <div id="student-status-field" class="col-md-6 d-none">
-                  <label for="student-status" class="form-label">Status</label>
-                  <select id="student-status" class="form-select">
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
+              </div>
+
+              <div class="form-section">
+                <h6 class="form-section-title">Contact Details</h6>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label for="student-email" class="form-label">Email</label>
+                    <input id="student-email" class="form-control" type="email" required maxlength="255">
+                    <div class="field-error"></div>
+                  </div>
+                  <div class="col-md-6">
+                    <label for="student-phone" class="form-label">Phone</label>
+                    <input id="student-phone" class="form-control" type="text" maxlength="20">
+                    <div class="field-error"></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -144,6 +166,23 @@
               </button>
             </div>
           </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="studentViewModal" tabindex="-1" aria-labelledby="studentViewModalTitle" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 id="studentViewModalTitle" class="modal-title">Student Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div id="student-view-content"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+          </div>
         </div>
       </div>
     </div>

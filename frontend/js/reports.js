@@ -43,13 +43,21 @@ const ReportsApp = (() => {
   let currentPageSize = 100;
 
   function init() {
-    document.getElementById("report-type")?.addEventListener("change", handleReportTypeChange);
+    document.querySelectorAll(".report-type-btn").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".report-type-btn").forEach((btn) => btn.classList.remove("active"));
+        button.classList.add("active");
+        handleReportTypeChange(button.dataset.reportType);
+      });
+    });
+
     document.getElementById("generate-report")?.addEventListener("click", generateReport);
     document.getElementById("export-csv")?.addEventListener("click", () => exportReport("csv"));
     document.getElementById("export-pdf")?.addEventListener("click", () => exportReport("pdf"));
 
-    handleReportTypeChange();
+    handleReportTypeChange("students");
     loadCourses();
+    loadStudents();
   }
 
   async function loadCourses() {
@@ -68,13 +76,29 @@ const ReportsApp = (() => {
     }
   }
 
-  function handleReportTypeChange() {
-    const select = document.getElementById("report-type");
-    if (!select) {
-      return;
+  async function loadStudents() {
+    try {
+      const response = await AdminApp.authFetch("/students?page_size=100&sort_by=first_name&sort_order=asc");
+      const students = AdminApp.getItems(response);
+      const studentSelect = document.getElementById("report-student");
+      if (!studentSelect) {
+        return;
+      }
+
+      studentSelect.innerHTML = '<option value="">All students</option>' +
+        students.map((student) => `<option value="${student.id}">${AdminApp.escapeHtml(student.first_name)} ${AdminApp.escapeHtml(student.last_name)} (${AdminApp.escapeHtml(student.student_code)})</option>`).join("");
+    } catch (error) {
+      console.error("Failed to load students", error);
+    }
+  }
+
+  function handleReportTypeChange(reportType) {
+    if (!reportType) {
+      const activeButton = document.querySelector(".report-type-btn.active");
+      reportType = activeButton?.dataset.reportType || "students";
     }
 
-    currentReportType = select.value;
+    currentReportType = reportType;
     currentFilters = {};
     currentPage = 1;
 
@@ -202,8 +226,7 @@ const ReportsApp = (() => {
 
       const queryString = buildReportQuery();
       const endpoint = REPORT_ENDPOINTS[currentReportType];
-      const response = await AdminApp.authFetch(`${endpoint}${queryString}`);
-      const data = await response.json();
+      const data = await AdminApp.authFetch(`${endpoint}${queryString}`);
 
       const items = AdminApp.getItems(data);
       if (items.length === 0) {
@@ -398,11 +421,7 @@ const ReportsApp = (() => {
       const baseEndpoint = EXPORT_ENDPOINTS[currentReportType];
       const url = `${baseEndpoint}/${format}${queryString}`;
 
-      const response = await AdminApp.authFetch(url);
-      if (!response.ok) {
-        throw new Error(`Export failed with status ${response.status}`);
-      }
-
+      const response = await AdminApp.downloadAuthenticatedFile(url);
       const blob = await response.blob();
       const contentDisposition = response.headers.get("content-disposition") || "";
       const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);

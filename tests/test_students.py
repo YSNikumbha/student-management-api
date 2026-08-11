@@ -1,5 +1,7 @@
 """Tests for student CRUD operations."""
 
+from datetime import date, timedelta
+
 from fastapi.testclient import TestClient
 
 
@@ -202,3 +204,248 @@ def test_sort_students(client: TestClient, admin_headers: dict, test_course) -> 
     data = response.json()
     names = [student["first_name"] for student in data["items"]]
     assert names == sorted(names)
+
+
+# ============================================
+# VALIDATION TESTS
+# ============================================
+
+def test_create_student_blank_code(client: TestClient, admin_headers: dict) -> None:
+    """Test creating student with blank student code returns 422."""
+    response = client.post(
+        "/students",
+        headers=admin_headers,
+        json={
+            "student_code": "   ",  # blank only
+            "first_name": "Alice",
+            "last_name": "Smith",
+            "email": "alice@test.com",
+        },
+    )
+    assert response.status_code == 422
+    assert "student code" in response.json()["detail"][0]["msg"].lower()
+
+
+def test_create_student_invalid_code_too_short(client: TestClient, admin_headers: dict) -> None:
+    """Test creating student with student code too short returns 422."""
+    response = client.post(
+        "/students",
+        headers=admin_headers,
+        json={
+            "student_code": "A",  # too short
+            "first_name": "Alice",
+            "last_name": "Smith",
+            "email": "alice@test.com",
+        },
+    )
+    assert response.status_code == 422
+    assert "student code" in response.json()["detail"][0]["msg"].lower()
+
+
+def test_create_student_invalid_code_characters(client: TestClient, admin_headers: dict) -> None:
+    """Test creating student with invalid characters in code returns 422."""
+    response = client.post(
+        "/students",
+        headers=admin_headers,
+        json={
+            "student_code": "STU@123!",  # invalid characters
+            "first_name": "Alice",
+            "last_name": "Smith",
+            "email": "alice@test.com",
+        },
+    )
+    assert response.status_code == 422
+    assert "student code" in response.json()["detail"][0]["msg"].lower()
+
+
+def test_create_student_lowercase_code_normalized(client: TestClient, admin_headers: dict) -> None:
+    """Test that lowercase student code is normalized to uppercase."""
+    response = client.post(
+        "/students",
+        headers=admin_headers,
+        json={
+            "student_code": "stu100",  # lowercase
+            "first_name": "Alice",
+            "last_name": "Smith",
+            "email": "alice.normalized@test.com",
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["student_code"] == "STU100"  # should be uppercase
+
+
+def test_create_student_invalid_short_name(client: TestClient, admin_headers: dict) -> None:
+    """Test creating student with name too short returns 422."""
+    response = client.post(
+        "/students",
+        headers=admin_headers,
+        json={
+            "student_code": "STU400",
+            "first_name": "A",  # too short
+            "last_name": "Smith",
+            "email": "alice@test.com",
+        },
+    )
+    assert response.status_code == 422
+    assert "name" in response.json()["detail"][0]["msg"].lower()
+
+
+def test_create_student_invalid_phone(client: TestClient, admin_headers: dict) -> None:
+    """Test creating student with invalid phone returns 422."""
+    response = client.post(
+        "/students",
+        headers=admin_headers,
+        json={
+            "student_code": "STU500",
+            "first_name": "Alice",
+            "last_name": "Smith",
+            "email": "alice@test.com",
+            "phone": "123",  # too short
+        },
+    )
+    assert response.status_code == 422
+    assert "phone" in response.json()["detail"][0]["msg"].lower()
+
+
+def test_create_student_phone_with_letters(client: TestClient, admin_headers: dict) -> None:
+    """Test creating student with alphabetic phone returns 422."""
+    response = client.post(
+        "/students",
+        headers=admin_headers,
+        json={
+            "student_code": "STU501",
+            "first_name": "Alice",
+            "last_name": "Smith",
+            "email": "alice@test.com",
+            "phone": "123abc4567",  # contains letters
+        },
+    )
+    assert response.status_code == 422
+    assert "phone" in response.json()["detail"][0]["msg"].lower()
+
+
+def test_create_student_future_dob(client: TestClient, admin_headers: dict) -> None:
+    """Test creating student with future date of birth returns 422."""
+    future_date = date.today() + timedelta(days=1)
+    response = client.post(
+        "/students",
+        headers=admin_headers,
+        json={
+            "student_code": "STU600",
+            "first_name": "Alice",
+            "last_name": "Smith",
+            "email": "alice@test.com",
+            "date_of_birth": future_date.isoformat(),
+        },
+    )
+    assert response.status_code == 422
+    assert "date of birth" in response.json()["detail"][0]["msg"].lower()
+
+
+def test_create_student_invalid_status(client: TestClient, admin_headers: dict) -> None:
+    """Test creating student with invalid status returns 422."""
+    response = client.post(
+        "/students",
+        headers=admin_headers,
+        json={
+            "student_code": "STU700",
+            "first_name": "Alice",
+            "last_name": "Smith",
+            "email": "alice@test.com",
+            "status": "invalid_status",  # invalid status
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_create_student_valid_edge_cases(client: TestClient, admin_headers: dict) -> None:
+    """Test creating student with valid edge cases."""
+    # Test with minimum length code
+    response1 = client.post(
+        "/students",
+        headers=admin_headers,
+        json={
+            "student_code": "AB",  # minimum 2 chars
+            "first_name": "Jo",  # minimum 2 chars
+            "last_name": "Do",
+            "email": "jo.do@test.com",
+        },
+    )
+    assert response1.status_code == 201
+    
+    # Test with name containing apostrophe and hyphen
+    response2 = client.post(
+        "/students",
+        headers=admin_headers,
+        json={
+            "student_code": "STU800",
+            "first_name": "Mary-Jane",
+            "last_name": "O'Connor",
+            "email": "mary.jane@test.com",
+        },
+    )
+    assert response2.status_code == 201
+    
+    # Test with phone including country code
+    response3 = client.post(
+        "/students",
+        headers=admin_headers,
+        json={
+            "student_code": "STU900",
+            "first_name": "Alice",
+            "last_name": "Smith",
+            "email": "alice.intl@test.com",
+            "phone": "+14155551234",
+        },
+    )
+    assert response3.status_code == 201
+    data3 = response3.json()
+    assert data3["phone"] == "+14155551234"
+
+
+def test_update_student_code_normalization(client: TestClient, admin_headers: dict, test_student) -> None:
+    """Test updating student code normalizes to uppercase."""
+    response = client.put(
+        f"/students/{test_student.id}",
+        headers=admin_headers,
+        json={
+            "student_code": "newcode123",  # lowercase
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["student_code"] == "NEWCODE123"
+
+
+def test_update_student_trim_whitespace(client: TestClient, admin_headers: dict, test_student) -> None:
+    """Test updating student trims whitespace from names."""
+    response = client.put(
+        f"/students/{test_student.id}",
+        headers=admin_headers,
+        json={
+            "first_name": "  Alice  ",  # with whitespace
+            "last_name": "  Smith  ",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["first_name"] == "Alice"
+    assert data["last_name"] == "Smith"
+
+
+def test_create_student_email_lowercase_normalization(client: TestClient, admin_headers: dict) -> None:
+    """Test that email is normalized to lowercase."""
+    response = client.post(
+        "/students",
+        headers=admin_headers,
+        json={
+            "student_code": "STU_EMAIL",
+            "first_name": "Test",
+            "last_name": "User",
+            "email": "TEST.USER@EXAMPLE.COM",  # uppercase
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["email"] == "test.user@example.com"  # should be lowercase

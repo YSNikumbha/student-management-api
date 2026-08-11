@@ -58,7 +58,6 @@
               <table class="table align-middle table-hover">
                 <thead>
                   <tr>
-                    <th>ID</th>
                     <th>Code</th>
                     <th>Course Name</th>
                     <th>Duration</th>
@@ -68,7 +67,7 @@
                 </thead>
                 <tbody id="courses-table-body">
                   <tr>
-                    <td colspan="6" class="text-center text-muted py-4">Loading...</td>
+                    <td colspan="5" class="text-center text-muted py-4">Loading...</td>
                   </tr>
                 </tbody>
               </table>
@@ -93,29 +92,42 @@
               <div id="course-form-alert"></div>
               <input id="course-id" type="hidden">
 
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label for="course-code" class="form-label">Course Code</label>
-                  <input id="course-code" class="form-control" type="text" required maxlength="50">
+              <div class="form-section">
+                <h6 class="form-section-title">Course Information</h6>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label for="course-code" class="form-label">Course Code</label>
+                    <input id="course-code" class="form-control" type="text" required maxlength="50">
+                    <div class="field-error"></div>
+                  </div>
+                  <div class="col-md-6">
+                    <label for="course-name" class="form-label">Course Name</label>
+                    <input id="course-name" class="form-control" type="text" required maxlength="150">
+                    <div class="field-error"></div>
+                  </div>
+                  <div class="col-md-12">
+                    <label for="course-description" class="form-label">Description</label>
+                    <textarea id="course-description" class="form-control" rows="3" maxlength="500"></textarea>
+                    <div class="field-error"></div>
+                  </div>
                 </div>
-                <div class="col-md-6">
-                  <label for="course-name" class="form-label">Course Name</label>
-                  <input id="course-name" class="form-control" type="text" required maxlength="150">
-                </div>
-                <div class="col-md-12">
-                  <label for="course-description" class="form-label">Description</label>
-                  <textarea id="course-description" class="form-control" rows="3" maxlength="500"></textarea>
-                </div>
-                <div class="col-md-6">
-                  <label for="course-duration" class="form-label">Duration in Months</label>
-                  <input id="course-duration" class="form-control" type="number" min="1" step="1">
-                </div>
-                <div id="course-active-field" class="col-md-6 d-none">
-                  <label for="course-active" class="form-label">Active Status</label>
-                  <select id="course-active" class="form-select">
-                    <option value="true">Active</option>
-                    <option value="false">Inactive</option>
-                  </select>
+              </div>
+
+              <div class="form-section">
+                <h6 class="form-section-title">Course Settings</h6>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label for="course-duration" class="form-label">Duration in Months</label>
+                    <input id="course-duration" class="form-control" type="number" min="1" step="1">
+                    <div class="field-error"></div>
+                  </div>
+                  <div id="course-active-field" class="col-md-6 d-none">
+                    <label for="course-active" class="form-label">Active Status</label>
+                    <select id="course-active" class="form-select">
+                      <option value="true">Active</option>
+                      <option value="false">Inactive</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -127,6 +139,23 @@
               </button>
             </div>
           </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="courseViewModal" tabindex="-1" aria-labelledby="courseViewModalTitle" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 id="courseViewModalTitle" class="modal-title">Course Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div id="course-view-content"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+          </div>
         </div>
       </div>
     </div>

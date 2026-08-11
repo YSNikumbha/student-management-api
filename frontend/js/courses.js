@@ -1,5 +1,6 @@
 let courses = [];
 let courseModal;
+let courseViewModal;
 let currentUser;
 let coursePageData = null;
 let courseState = {
@@ -13,6 +14,7 @@ let courseState = {
 
 document.addEventListener("DOMContentLoaded", () => {
   courseModal = new bootstrap.Modal(document.querySelector("#courseModal"));
+  courseViewModal = new bootstrap.Modal(document.querySelector("#courseViewModal"));
   currentUser = AdminApp.getCurrentUser();
 
   const addButton = document.querySelector("#open-add-course");
@@ -53,7 +55,7 @@ async function loadCourses() {
   const tableBody = document.querySelector("#courses-table-body");
   tableBody.innerHTML = `
     <tr>
-      <td colspan="6" class="text-center text-muted py-4">Loading...</td>
+      <td colspan="5" class="text-center text-muted py-4">Loading...</td>
     </tr>
   `;
 
@@ -82,7 +84,7 @@ function renderCourses() {
   if (courses.length === 0) {
     tableBody.innerHTML = `
       <tr>
-        <td colspan="6" class="text-center text-muted py-4">No courses found.</td>
+        <td colspan="5" class="text-center text-muted py-4">No courses found.</td>
       </tr>
     `;
     return;
@@ -95,20 +97,28 @@ function renderCourses() {
 
     const actionButtons = currentUser?.role === "admin"
       ? `
-          <span class="table-actions">
-            <button class="btn btn-sm btn-outline-primary btn-icon" type="button" data-action="edit" data-id="${course.id}" aria-label="Edit course">
-              <i class="bi bi-pencil"></i>
+          <span class="action-buttons">
+            <button class="btn btn-sm btn-action-view" type="button" data-action="view" data-id="${course.id}" aria-label="View course">
+              <i class="bi bi-eye"></i> View
+            </button>
+            <button class="btn btn-sm btn-action-edit" type="button" data-action="edit" data-id="${course.id}" aria-label="Edit course">
+              <i class="bi bi-pencil"></i> Edit
             </button>
             <button class="btn btn-sm btn-outline-danger btn-icon" type="button" data-action="delete" data-id="${course.id}" aria-label="Delete course">
               <i class="bi bi-trash"></i>
             </button>
           </span>
         `
-      : '<span class="muted-cell">View only</span>';
+      : `
+          <span class="action-buttons">
+            <button class="btn btn-sm btn-action-view" type="button" data-action="view" data-id="${course.id}" aria-label="View course">
+              <i class="bi bi-eye"></i> View
+            </button>
+          </span>
+        `;
 
     return `
       <tr>
-        <td>${AdminApp.escapeHtml(course.id)}</td>
         <td>${AdminApp.escapeHtml(course.code)}</td>
         <td>
           <div class="fw-semibold">${AdminApp.escapeHtml(course.name)}</div>
@@ -162,14 +172,60 @@ function prepareEditCourse(courseId) {
 async function saveCourse(event) {
   event.preventDefault();
 
+  const form = document.querySelector("#course-form");
   const saveButton = document.querySelector("#save-course");
   const courseId = document.querySelector("#course-id").value;
-  const durationValue = document.querySelector("#course-duration").value;
+
+  AdminApp.clearFormErrors(form);
+
+  const codeInput = document.querySelector("#course-code");
+  const nameInput = document.querySelector("#course-name");
+  const descriptionInput = document.querySelector("#course-description");
+  const durationInput = document.querySelector("#course-duration");
+
+  const codeError = AdminApp.validateStudentCode(codeInput.value);
+  const nameError = AdminApp.validateName(nameInput.value, "Course name");
+  const descriptionError = descriptionInput.value.trim() ? null : null;
+  const durationError = durationInput.value ? null : null;
+
+  let hasError = false;
+
+  if (codeError) {
+    AdminApp.showFieldError(codeInput, codeError);
+    hasError = true;
+  }
+
+  if (nameError) {
+    AdminApp.showFieldError(nameInput, nameError);
+    hasError = true;
+  }
+
+  if (descriptionInput.value.trim() && descriptionInput.value.trim().length > 500) {
+    AdminApp.showFieldError(descriptionInput, "Description must be 500 characters or less.");
+    hasError = true;
+  }
+
+  if (durationInput.value) {
+    const durationNum = Number(durationInput.value);
+    if (!Number.isInteger(durationNum) || durationNum <= 0) {
+      AdminApp.showFieldError(durationInput, "Duration must be a positive integer.");
+      hasError = true;
+    } else if (durationNum > 120) {
+      AdminApp.showFieldError(durationInput, "Duration cannot exceed 120 months.");
+      hasError = true;
+    }
+  }
+
+  if (hasError) {
+    AdminApp.focusFirstInvalidField(form);
+    return;
+  }
+
   const payload = {
-    code: document.querySelector("#course-code").value.trim(),
-    name: document.querySelector("#course-name").value.trim(),
-    description: document.querySelector("#course-description").value.trim() || null,
-    duration_months: durationValue ? Number(durationValue) : null,
+    code: codeInput.value.trim(),
+    name: nameInput.value.trim(),
+    description: descriptionInput.value.trim() || null,
+    duration_months: durationInput.value ? Number(durationInput.value) : null,
   };
 
   if (courseId) {
@@ -185,18 +241,18 @@ async function saveCourse(event) {
         method: "PUT",
         body: payload,
       });
-      AdminApp.showAlert("#courses-alert", "Course updated successfully.", "success");
+      AdminApp.showToast("success", "Course updated successfully.");
     } else {
       await AdminApp.authFetch("/courses", {
         method: "POST",
         body: payload,
       });
       courseState.page = 1;
-      AdminApp.showAlert("#courses-alert", "Course created successfully.", "success");
+      AdminApp.showToast("success", "Course created successfully.");
     }
 
     courseModal.hide();
-    document.querySelector("#course-form").reset();
+    form.reset();
     await loadCourses();
   } catch (error) {
     AdminApp.showAlert("#course-form-alert", error.message, "danger");
@@ -212,26 +268,99 @@ async function handleCourseAction(event) {
   }
 
   const courseId = Number(button.dataset.id);
+  if (button.dataset.action === "view") {
+    showCourseDetails(courseId);
+    return;
+  }
+
   if (button.dataset.action === "edit") {
     prepareEditCourse(courseId);
     return;
   }
 
-  if (!window.confirm("Are you sure you want to delete this course?")) {
+  if (button.dataset.action === "delete") {
+    const confirmed = await AdminApp.confirmAction({
+      title: "Delete Course",
+      message: "Are you sure you want to delete this course? This action cannot be undone.",
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+      danger: true,
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    button.disabled = true;
+    try {
+      await AdminApp.authFetch(`/courses/${courseId}`, { method: "DELETE" });
+      AdminApp.showToast("success", "Course deleted successfully.");
+      await loadCourses();
+    } catch (error) {
+      const message = error.status === 409 && error.message.includes("students")
+        ? "Cannot delete this course because students are currently assigned to it."
+        : error.message;
+      AdminApp.showAlert("#courses-alert", message, "danger");
+    } finally {
+      button.disabled = false;
+    }
+  }
+}
+
+async function showCourseDetails(courseId) {
+  const course = courses.find((item) => item.id === courseId);
+  if (!course) {
+    AdminApp.showAlert("#courses-alert", "Course not found.", "danger");
     return;
   }
 
-  button.disabled = true;
-  try {
-    await AdminApp.authFetch(`/courses/${courseId}`, { method: "DELETE" });
-    AdminApp.showAlert("#courses-alert", "Course deleted successfully.", "success");
-    await loadCourses();
-  } catch (error) {
-    const message = error.status === 409 && error.message.includes("students")
-      ? "Cannot delete this course because students are currently assigned to it."
-      : error.message;
-    AdminApp.showAlert("#courses-alert", message, "danger");
-  } finally {
-    button.disabled = false;
-  }
+  const durationText = course.duration_months
+    ? `${course.duration_months} months`
+    : "Not Set";
+
+  document.querySelector("#courseViewModalTitle").textContent = `${course.code} - ${course.name}`;
+  document.querySelector("#course-view-content").innerHTML = `
+    <div class="student-view-section">
+      <h6 class="student-view-section-title">Course Information</h6>
+      <div class="student-view-grid">
+        <div class="student-view-item">
+          <span class="student-view-label">Course Code</span>
+          <span class="student-view-value">${AdminApp.escapeHtml(course.code)}</span>
+        </div>
+        <div class="student-view-item">
+          <span class="student-view-label">Course Name</span>
+          <span class="student-view-value">${AdminApp.escapeHtml(course.name)}</span>
+        </div>
+        <div class="student-view-item">
+          <span class="student-view-label">Duration</span>
+          <span class="student-view-value">${AdminApp.escapeHtml(durationText)}</span>
+        </div>
+        <div class="student-view-item">
+          <span class="student-view-label">Status</span>
+          <span class="student-view-value">${AdminApp.statusBadge(course.is_active, true)}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="student-view-section">
+      <h6 class="student-view-section-title">Description</h6>
+      <div class="student-view-item full-width">
+        <span class="student-view-label">Description</span>
+        <span class="student-view-value">${course.description ? AdminApp.escapeHtml(course.description) : "No description provided"}</span>
+      </div>
+    </div>
+
+    <div class="student-view-section">
+      <h6 class="student-view-section-title">Additional Information</h6>
+      <div class="student-view-grid">
+        <div class="student-view-item">
+          <span class="student-view-label">Created Date</span>
+          <span class="student-view-value">${course.created_at ? AdminApp.escapeHtml(course.created_at.slice(0, 10)) : "N/A"}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  AdminApp.clearAlert("#course-view-alert");
+  courseViewModal.show();
 }

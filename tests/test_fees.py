@@ -1,5 +1,6 @@
 """Tests for fee and payment operations."""
 
+from datetime import date
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
@@ -292,3 +293,132 @@ def test_fee_pagination(client: TestClient, admin_headers: dict) -> None:
     assert "page_size" in data
     assert "total_items" in data
     assert "total_pages" in data
+
+
+def test_create_fee_blank_title(client: TestClient, admin_headers: dict, test_student) -> None:
+    """Test creating fee with blank title returns 422."""
+    response = client.post(
+        "/fees",
+        headers=admin_headers,
+        json={
+            "student_id": test_student.id,
+            "title": "   ",
+            "total_amount": "5000.00",
+            "due_date": "2025-12-31",
+        },
+    )
+    assert response.status_code == 422
+    assert "title" in response.json()["detail"][0]["msg"].lower()
+
+
+def test_create_fee_title_too_short(client: TestClient, admin_headers: dict, test_student) -> None:
+    """Test creating fee with title too short returns 422."""
+    response = client.post(
+        "/fees",
+        headers=admin_headers,
+        json={
+            "student_id": test_student.id,
+            "title": "AB",
+            "total_amount": "5000.00",
+            "due_date": "2025-12-31",
+        },
+    )
+    assert response.status_code == 422
+    assert "title" in response.json()["detail"][0]["msg"].lower()
+
+
+def test_create_fee_oversized_description(client: TestClient, admin_headers: dict, test_student) -> None:
+    """Test creating fee with description > 500 chars returns 422."""
+    response = client.post(
+        "/fees",
+        headers=admin_headers,
+        json={
+            "student_id": test_student.id,
+            "title": "Valid Fee Title",
+            "description": "A" * 501,
+            "total_amount": "5000.00",
+            "due_date": "2025-12-31",
+        },
+    )
+    assert response.status_code == 422
+    assert "500" in response.json()["detail"][0]["msg"]
+
+
+def test_create_payment_future_date(client: TestClient, admin_headers: dict, test_fee) -> None:
+    """Test creating payment with future date returns 422."""
+    future_date = date.today().replace(year=date.today().year + 1)
+    response = client.post(
+        f"/fees/{test_fee.id}/payments",
+        headers=admin_headers,
+        json={
+            "amount": "1000.00",
+            "payment_date": future_date.isoformat(),
+            "payment_method": "cash",
+        },
+    )
+    assert response.status_code == 422
+    assert "future" in response.json()["detail"][0]["msg"].lower()
+
+
+def test_create_payment_oversized_notes(client: TestClient, admin_headers: dict, test_fee) -> None:
+    """Test creating payment with notes > 500 chars returns 422."""
+    response = client.post(
+        f"/fees/{test_fee.id}/payments",
+        headers=admin_headers,
+        json={
+            "amount": "1000.00",
+            "payment_date": "2025-01-15",
+            "payment_method": "cash",
+            "notes": "A" * 501,
+        },
+    )
+    assert response.status_code == 422
+    assert "500" in response.json()["detail"][0]["msg"]
+
+
+def test_create_payment_oversized_reference(client: TestClient, admin_headers: dict, test_fee) -> None:
+    """Test creating payment with reference number > 150 chars returns 422."""
+    response = client.post(
+        f"/fees/{test_fee.id}/payments",
+        headers=admin_headers,
+        json={
+            "amount": "1000.00",
+            "payment_date": "2025-01-15",
+            "payment_method": "upi",
+            "reference_number": "A" * 151,
+        },
+    )
+    assert response.status_code == 422
+    assert "150" in response.json()["detail"][0]["msg"]
+
+
+def test_create_fee_valid_edge_cases(client: TestClient, admin_headers: dict, test_student) -> None:
+    """Test creating fee with valid edge cases."""
+    # Test with minimum length title
+    response1 = client.post(
+        "/fees",
+        headers=admin_headers,
+        json={
+            "student_id": test_student.id,
+            "title": "ABC",
+            "total_amount": "100.00",
+            "due_date": "2025-12-31",
+        },
+    )
+    assert response1.status_code == 201
+    data1 = response1.json()
+    assert data1["title"] == "ABC"
+
+    # Test with description at max length
+    response2 = client.post(
+        "/fees",
+        headers=admin_headers,
+        json={
+            "student_id": test_student.id,
+            "title": "Fee with max description",
+            "description": "A" * 500,
+            "total_amount": "200.00",
+            "due_date": "2025-12-31",
+        },
+    )
+    assert response2.status_code == 201

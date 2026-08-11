@@ -33,58 +33,80 @@ function renderSummary(summary) {
 }
 
 function renderRecentStudents(students) {
-  const tableBody = document.querySelector("#recent-students-body");
+  const container = document.querySelector("#recent-students-list");
 
   if (!students.length) {
-    setRecentEmpty(tableBody, 5, "No students found.");
+    container.innerHTML = '<div class="activity-empty">No students found.</div>';
     return;
   }
 
-  tableBody.innerHTML = students.map((student) => `
-    <tr>
-      <td>${AdminApp.escapeHtml(student.student_code)}</td>
-      <td>${AdminApp.escapeHtml(student.name)}</td>
-      <td>${AdminApp.escapeHtml(student.email)}</td>
-      <td>${AdminApp.escapeHtml(student.course_id ?? "Not Assigned")}</td>
-      <td>${AdminApp.statusBadge(student.status)}</td>
-    </tr>
+  container.innerHTML = students.map((student) => `
+    <div class="activity-card">
+      <div class="activity-card-body">
+        <div class="activity-card-primary">
+          <div class="activity-card-title">${AdminApp.escapeHtml(student.name)}</div>
+          <div class="activity-card-subtitle">${AdminApp.escapeHtml(student.student_code)}</div>
+        </div>
+        <div class="activity-card-secondary">
+          <span class="activity-badge">${AdminApp.statusBadge(student.status)}</span>
+        </div>
+      </div>
+      <div class="activity-card-footer">
+        <span class="activity-meta">${AdminApp.escapeHtml(student.email || "")}</span>
+      </div>
+    </div>
   `).join("");
 }
 
 function renderRecentPayments(payments) {
-  const tableBody = document.querySelector("#recent-payments-body");
+  const container = document.querySelector("#recent-payments-list");
 
   if (!payments.length) {
-    setRecentEmpty(tableBody, 5, "No payments recorded yet.");
+    container.innerHTML = '<div class="activity-empty">No payments recorded yet.</div>';
     return;
   }
 
-  tableBody.innerHTML = payments.map((payment) => `
-    <tr>
-      <td>${AdminApp.escapeHtml(payment.student_name)}</td>
-      <td>${AdminApp.escapeHtml(payment.fee_title)}</td>
-      <td class="money-cell">${AdminApp.formatCurrency(payment.amount)}</td>
-      <td>${AdminApp.escapeHtml(payment.payment_date)}</td>
-      <td>${AdminApp.escapeHtml(formatPaymentMethod(payment.payment_method))}</td>
-    </tr>
+  container.innerHTML = payments.map((payment) => `
+    <div class="activity-card">
+      <div class="activity-card-body">
+        <div class="activity-card-primary">
+          <div class="activity-card-title">${AdminApp.escapeHtml(payment.student_name)}</div>
+          <div class="activity-card-subtitle">${AdminApp.escapeHtml(payment.fee_title)}</div>
+        </div>
+        <div class="activity-card-secondary">
+          <span class="activity-amount">${AdminApp.formatCurrency(payment.amount)}</span>
+        </div>
+      </div>
+      <div class="activity-card-footer">
+        <span class="activity-meta">${AdminApp.escapeHtml(payment.payment_date)} · ${AdminApp.escapeHtml(formatPaymentMethod(payment.payment_method))}</span>
+      </div>
+    </div>
   `).join("");
 }
 
 function renderRecentAttendance(records) {
-  const tableBody = document.querySelector("#recent-attendance-body");
+  const container = document.querySelector("#recent-attendance-list");
 
   if (!records.length) {
-    setRecentEmpty(tableBody, 4, "No attendance records found.");
+    container.innerHTML = '<div class="activity-empty">No attendance records found.</div>';
     return;
   }
 
-  tableBody.innerHTML = records.map((record) => `
-    <tr>
-      <td>${AdminApp.escapeHtml(record.date)}</td>
-      <td>${AdminApp.escapeHtml(record.student_name)}</td>
-      <td>${AdminApp.attendanceBadge(record.status)}</td>
-      <td>${AdminApp.escapeHtml(AdminApp.formatDate(record.updated_at))}</td>
-    </tr>
+  container.innerHTML = records.map((record) => `
+    <div class="activity-card">
+      <div class="activity-card-body">
+        <div class="activity-card-primary">
+          <div class="activity-card-title">${AdminApp.escapeHtml(record.student_name)}</div>
+          <div class="activity-card-subtitle">${AdminApp.escapeHtml(record.date)}</div>
+        </div>
+        <div class="activity-card-secondary">
+          <span class="activity-badge">${AdminApp.attendanceBadge(record.status)}</span>
+        </div>
+      </div>
+      <div class="activity-card-footer">
+        <span class="activity-meta">Updated ${AdminApp.escapeHtml(AdminApp.formatDate(record.updated_at))}</span>
+      </div>
+    </div>
   `).join("");
 }
 
