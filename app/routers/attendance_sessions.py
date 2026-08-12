@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -14,7 +14,7 @@ from app.schemas.attendance_session import (
     AttendanceSessionWithDetails,
 )
 from app.schemas.pagination import PaginatedResponse, build_paginated_response
-from app.services import attendance_session_service
+from app.services import audit_service, attendance_session_service
 
 router = APIRouter(prefix="/attendance", tags=["Attendance Sessions"])
 
@@ -26,11 +26,12 @@ router = APIRouter(prefix="/attendance", tags=["Attendance Sessions"])
 )
 def create_session(
     session_data: AttendanceSessionCreate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_attendance_editor),
 ) -> AttendanceSession:
     try:
-        return attendance_session_service.create_attendance_session(
+        session = attendance_session_service.create_attendance_session(
             db, session_data, created_by=current_user.id
         )
     except ValueError as e:
@@ -38,6 +39,23 @@ def create_session(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         )
+    audit_service.record_audit_event(
+        db,
+        user_id=current_user.id,
+        action="attendance_session_created",
+        entity_type="attendance_session",
+        entity_id=session.id,
+        description="Attendance session created",
+        metadata_json={
+            "date": session.date,
+            "course_id": session.course_id,
+            "batch_id": session.batch_id,
+            "semester_id": session.semester_id,
+            "subject_id": session.subject_id,
+        },
+        ip_address=audit_service.get_request_ip(request),
+    )
+    return session
 
 
 @router.get(
@@ -154,14 +172,24 @@ def update_session(
 )
 def delete_session(
     session_id: int,
+    request: Request,
     db: Session = Depends(get_db),
-    _current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ) -> Response:
     if not attendance_session_service.delete_attendance_session(db, session_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Attendance session not found",
         )
+    audit_service.record_audit_event(
+        db,
+        user_id=current_user.id,
+        action="attendance_session_deleted",
+        entity_type="attendance_session",
+        entity_id=session_id,
+        description="Attendance session deleted",
+        ip_address=audit_service.get_request_ip(request),
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -181,6 +209,7 @@ def get_session_students(session_id: int, db: Session = Depends(get_db)) -> dict
 def bulk_create_records(
     session_id: int,
     records: AttendanceBulkCreate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_attendance_editor),
 ) -> dict:
@@ -203,6 +232,20 @@ def bulk_create_records(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Attendance session not found",
         )
+    audit_service.record_audit_event(
+        db,
+        user_id=current_user.id,
+        action="attendance_changed",
+        entity_type="attendance_session",
+        entity_id=session_id,
+        description="Session attendance records saved",
+        metadata_json={
+            "created": result.get("created", 0),
+            "updated": result.get("updated", 0),
+            "record_count": len(records.records),
+        },
+        ip_address=audit_service.get_request_ip(request),
+    )
     return {
         "message": "Attendance records saved successfully",
         **result,

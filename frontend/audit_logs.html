@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Audit Logs | Student Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/admin/assets/css/style.css" rel="stylesheet">
+  </head>
+  <body data-page="audit-logs" data-title="Audit Logs">
+    <div class="app-shell">
+      <aside id="sidebar" class="sidebar"></aside>
+      <div class="content-shell">
+        <header id="topbar" class="topbar"></header>
+        <main class="main-content">
+          <div id="audit-alert"></div>
+
+          <section class="content-panel">
+            <div class="panel-header">
+              <div>
+                <h2>Audit Logs</h2>
+                <p>Administrative action history</p>
+              </div>
+            </div>
+
+            <div class="filter-row mb-3">
+              <div class="input-icon">
+                <i class="bi bi-search"></i>
+                <input id="audit-search" class="form-control" type="search" placeholder="Search logs" aria-label="Search audit logs">
+              </div>
+              <select id="audit-user-filter" class="form-select" aria-label="Filter by user">
+                <option value="">All users</option>
+              </select>
+              <input id="audit-action-filter" class="form-control" type="text" placeholder="Action" aria-label="Filter by action">
+              <input id="audit-entity-filter" class="form-control" type="text" placeholder="Entity type" aria-label="Filter by entity type">
+              <input id="audit-start-date" class="form-control" type="date" aria-label="Start date">
+              <input id="audit-end-date" class="form-control" type="date" aria-label="End date">
+              <select id="audit-page-size" class="form-select" aria-label="Rows per page">
+                <option value="10">10 rows</option>
+                <option value="25">25 rows</option>
+                <option value="50">50 rows</option>
+              </select>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table align-middle table-hover">
+                <thead>
+                  <tr>
+                    <th>Date/Time</th>
+                    <th>User</th>
+                    <th>Action</th>
+                    <th>Entity</th>
+                    <th>Description</th>
+                    <th class="text-end">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="audit-table-body">
+                  <tr>
+                    <td colspan="6" class="text-center text-muted py-4">Loading...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div id="audit-pagination"></div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
+    <div class="modal fade" id="auditLogModal" tabindex="-1" aria-labelledby="auditLogModalTitle" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 id="auditLogModalTitle" class="modal-title">Audit Log Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div id="audit-log-detail"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/admin/assets/js/common.js"></script>
+    <script src="/admin/assets/js/audit_logs.js"></script>
+  </body>
+</html>

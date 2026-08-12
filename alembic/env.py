@@ -7,10 +7,14 @@ from alembic import context
 from app.database.base import Base
 from app.database.database import DATABASE_URL
 from app.models.academic_year import AcademicYear  # noqa: F401
+from app.models.audit_log import AuditLog  # noqa: F401
 from app.models.attendance import Attendance  # noqa: F401
 from app.models.attendance_session import AttendanceSession  # noqa: F401
 from app.models.batch import Batch  # noqa: F401
 from app.models.course import Course  # noqa: F401
+from app.models.fee_category import FeeCategory  # noqa: F401
+from app.models.fee_installment import FeeInstallment  # noqa: F401
+from app.models.fee_structure import FeeStructure  # noqa: F401
 from app.models.payment import Payment  # noqa: F401
 from app.models.semester import Semester  # noqa: F401
 from app.models.student import Student  # noqa: F401

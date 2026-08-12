@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base
 
 if TYPE_CHECKING:
+    from app.models.audit_log import AuditLog
     from app.models.attendance import Attendance
     from app.models.attendance_session import AttendanceSession
     from app.models.payment import Payment
@@ -46,3 +47,4 @@ class User(Base):
     )
     attendances_marked: Mapped[list[Attendance]] = relationship(back_populates="marked_by_user")
     attendance_sessions: Mapped[list[AttendanceSession]] = relationship(back_populates="created_by_user")
+    audit_logs: Mapped[list[AuditLog]] = relationship(back_populates="user")

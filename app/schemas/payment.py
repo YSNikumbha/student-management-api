@@ -10,6 +10,7 @@ class PaymentCreate(BaseModel):
     amount: Decimal = Field(gt=Decimal("0.00"), max_digits=12, decimal_places=2)
     payment_date: date
     payment_method: PaymentMethod
+    fee_installment_id: int | None = None
     reference_number: str | None = Field(default=None, max_length=150)
     notes: str | None = Field(default=None, max_length=500)
 
@@ -48,6 +49,8 @@ class PaymentCreate(BaseModel):
 class PaymentResponse(BaseModel):
     id: int
     student_fee_id: int
+    fee_installment_id: int | None = None
+    receipt_number: str | None = None
     amount: Decimal
     payment_date: date
     payment_method: PaymentMethod
@@ -57,3 +60,19 @@ class PaymentResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PaymentReceiptResponse(BaseModel):
+    payment_id: int
+    receipt_number: str | None
+    student_name: str
+    student_code: str
+    course_name: str | None
+    fee_title: str
+    amount_paid: Decimal
+    payment_method: PaymentMethod
+    reference_number: str | None
+    payment_date: date
+    balance: Decimal
+    recorded_by_name: str | None
+    created_at: datetime

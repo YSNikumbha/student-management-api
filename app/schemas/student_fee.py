@@ -5,6 +5,7 @@ from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.payment import PaymentResponse
+from app.schemas.fee_structure import FeeInstallmentResponse
 
 
 class FeeStatus(str, Enum):
@@ -83,6 +84,8 @@ class StudentFeeUpdate(BaseModel):
 class StudentFeeResponse(BaseModel):
     id: int
     student_id: int
+    fee_structure_id: int | None = None
+    fee_structure_name: str | None = None
     student_code: str | None = None
     student_name: str | None = None
     course_id: int | None = None
@@ -102,6 +105,7 @@ class StudentFeeResponse(BaseModel):
 
 class StudentFeeDetailResponse(StudentFeeResponse):
     payments: list[PaymentResponse]
+    installments: list[FeeInstallmentResponse] = Field(default_factory=list)
 
 
 class FeeSummaryResponse(BaseModel):

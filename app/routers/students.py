@@ -1,15 +1,16 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
 from app.dependencies.auth import get_current_user, require_admin
 from app.models.student import Student
+from app.models.user import User
 from app.schemas.pagination import PaginatedResponse, build_paginated_response
 from app.schemas.student import StudentCreate, StudentResponse, StudentUpdate
-from app.services import course_service, fee_service, student_service
+from app.services import audit_service, course_service, fee_service, student_service
 
 
 router = APIRouter(
@@ -39,11 +40,12 @@ def _validate_course_id(db: Session, course_id: int | None) -> None:
     "",
     response_model=StudentResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_admin)],
 )
 def create_student(
     student_data: StudentCreate,
+    request: Request,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ) -> Student:
     _validate_course_id(db, student_data.course_id)
 
@@ -60,13 +62,24 @@ def create_student(
         )
 
     try:
-        return student_service.create_student(db, student_data)
+        student = student_service.create_student(db, student_data)
     except IntegrityError as error:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=_duplicate_detail(error),
         ) from error
+    audit_service.record_audit_event(
+        db,
+        user_id=current_user.id,
+        action="student_created",
+        entity_type="student",
+        entity_id=student.id,
+        description=f"Student {student.student_code} created",
+        metadata_json={"student_code": student.student_code, "email": student.email},
+        ip_address=audit_service.get_request_ip(request),
+    )
+    return student
 
 
 @router.get(
@@ -127,7 +140,9 @@ def get_student(
 def update_student(
     student_id: int,
     student_data: StudentUpdate,
+    request: Request,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> Student:
     student = student_service.get_student_by_id(db, student_id)
     if student is None:
@@ -139,6 +154,7 @@ def update_student(
     update_data = student_data.model_dump(exclude_unset=True)
     if "course_id" in update_data:
         _validate_course_id(db, update_data["course_id"])
+    old_status = student.status
 
     email = update_data.get("email")
     if email is not None and email != student.email:
@@ -159,13 +175,35 @@ def update_student(
             )
 
     try:
-        return student_service.update_student(db, student, student_data)
+        updated_student = student_service.update_student(db, student, student_data)
     except IntegrityError as error:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=_duplicate_detail(error),
         ) from error
+    audit_service.record_audit_event(
+        db,
+        user_id=current_user.id,
+        action="student_updated",
+        entity_type="student",
+        entity_id=updated_student.id,
+        description=f"Student {updated_student.student_code} updated",
+        metadata_json={"updated_fields": sorted(update_data.keys())},
+        ip_address=audit_service.get_request_ip(request),
+    )
+    if "status" in update_data and updated_student.status != old_status:
+        audit_service.record_audit_event(
+            db,
+            user_id=current_user.id,
+            action="student_status_changed",
+            entity_type="student",
+            entity_id=updated_student.id,
+            description=f"Student {updated_student.student_code} status changed",
+            metadata_json={"old_status": old_status, "new_status": updated_student.status},
+            ip_address=audit_service.get_request_ip(request),
+        )
+    return updated_student
 
 
 @router.delete(

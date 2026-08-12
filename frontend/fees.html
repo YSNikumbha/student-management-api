@@ -16,123 +16,199 @@
         <main class="main-content">
           <div id="fees-alert"></div>
 
-          <section class="summary-grid" aria-label="Fee summary">
-            <article class="summary-card">
-              <div class="summary-icon bg-primary-subtle text-primary">
-                <i class="bi bi-wallet2"></i>
-              </div>
-              <div>
-                <p class="summary-label">Total Assigned</p>
-                <p id="summary-assigned" class="summary-value summary-money">...</p>
-              </div>
-            </article>
+          <ul class="nav nav-tabs mb-3" id="fees-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="student-fees-tab" data-bs-toggle="tab" data-bs-target="#student-fees-panel" type="button" role="tab">
+                <i class="bi bi-wallet2"></i> Student Fees
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="fee-structures-tab" data-bs-toggle="tab" data-bs-target="#fee-structures-panel" type="button" role="tab">
+                <i class="bi bi-diagram-3"></i> Fee Structures
+              </button>
+            </li>
+          </ul>
 
-            <article class="summary-card">
-              <div class="summary-icon bg-success-subtle text-success">
-                <i class="bi bi-check2-circle"></i>
-              </div>
-              <div>
-                <p class="summary-label">Total Collected</p>
-                <p id="summary-collected" class="summary-value summary-money">...</p>
-              </div>
-            </article>
+          <div class="tab-content">
+            <div class="tab-pane fade show active" id="student-fees-panel" role="tabpanel">
+              <section class="summary-grid" aria-label="Fee summary">
+                <article class="summary-card">
+                  <div class="summary-icon bg-primary-subtle text-primary">
+                    <i class="bi bi-wallet2"></i>
+                  </div>
+                  <div>
+                    <p class="summary-label">Total Assigned</p>
+                    <p id="summary-assigned" class="summary-value summary-money">...</p>
+                  </div>
+                </article>
 
-            <article class="summary-card">
-              <div class="summary-icon bg-warning-subtle text-warning">
-                <i class="bi bi-hourglass-split"></i>
-              </div>
-              <div>
-                <p class="summary-label">Total Pending</p>
-                <p id="summary-pending" class="summary-value summary-money">...</p>
-              </div>
-            </article>
+                <article class="summary-card">
+                  <div class="summary-icon bg-success-subtle text-success">
+                    <i class="bi bi-check2-circle"></i>
+                  </div>
+                  <div>
+                    <p class="summary-label">Total Collected</p>
+                    <p id="summary-collected" class="summary-value summary-money">...</p>
+                  </div>
+                </article>
 
-            <article class="summary-card">
-              <div class="summary-icon bg-danger-subtle text-danger">
-                <i class="bi bi-exclamation-circle"></i>
-              </div>
-              <div>
-                <p class="summary-label">Overdue</p>
-                <p id="summary-overdue" class="summary-value">...</p>
-              </div>
-            </article>
-          </section>
+                <article class="summary-card">
+                  <div class="summary-icon bg-warning-subtle text-warning">
+                    <i class="bi bi-hourglass-split"></i>
+                  </div>
+                  <div>
+                    <p class="summary-label">Total Pending</p>
+                    <p id="summary-pending" class="summary-value summary-money">...</p>
+                  </div>
+                </article>
 
-          <section class="content-panel mt-4">
-            <div class="panel-header panel-header-actions">
-              <div>
-                <h2>Fee Records</h2>
-                <p>Assign fees, record payments, and track balances</p>
-              </div>
-              <div class="toolbar">
-                <button id="open-add-fee" class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#feeModal">
-                  <i class="bi bi-plus-lg"></i>
-                  Assign Fee
-                </button>
-              </div>
+                <article class="summary-card">
+                  <div class="summary-icon bg-danger-subtle text-danger">
+                    <i class="bi bi-exclamation-circle"></i>
+                  </div>
+                  <div>
+                    <p class="summary-label">Overdue</p>
+                    <p id="summary-overdue" class="summary-value">...</p>
+                  </div>
+                </article>
+              </section>
+
+              <section class="content-panel mt-4">
+                <div class="panel-header panel-header-actions">
+                  <div>
+                    <h2>Student Fees</h2>
+                    <p>Assign fees, manage installments, record payments, and issue receipts</p>
+                  </div>
+                  <div class="toolbar">
+                    <button id="open-add-fee" class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#feeModal">
+                      <i class="bi bi-plus-lg"></i>
+                      Assign Fee
+                    </button>
+                  </div>
+                </div>
+
+                <div class="fee-filters mb-3">
+                  <div class="input-icon">
+                    <i class="bi bi-search"></i>
+                    <input id="fee-search" class="form-control" type="search" placeholder="Search student or fee" aria-label="Search fees">
+                  </div>
+                  <select id="fee-status-filter" class="form-select" aria-label="Filter by fee status">
+                    <option value="">All statuses</option>
+                    <option value="unpaid">Unpaid</option>
+                    <option value="partial">Partial</option>
+                    <option value="paid">Paid</option>
+                    <option value="overdue">Overdue</option>
+                  </select>
+                  <select id="fee-course-filter" class="form-select" aria-label="Filter by course">
+                    <option value="">All courses</option>
+                  </select>
+                  <div>
+                    <label for="fee-due-after-filter" class="form-label">Due From</label>
+                    <input id="fee-due-after-filter" class="form-control" type="date">
+                  </div>
+                  <div>
+                    <label for="fee-due-before-filter" class="form-label">Due To</label>
+                    <input id="fee-due-before-filter" class="form-control" type="date">
+                  </div>
+                  <select id="fee-sort" class="form-select" aria-label="Sort fees">
+                    <option value="due_date:asc">Due Date Asc</option>
+                    <option value="due_date:desc">Due Date Desc</option>
+                    <option value="created_at:desc">Newest</option>
+                    <option value="total_amount:desc">Amount High-Low</option>
+                    <option value="total_amount:asc">Amount Low-High</option>
+                  </select>
+                  <select id="fee-page-size" class="form-select" aria-label="Rows per page">
+                    <option value="10">10 rows</option>
+                    <option value="25">25 rows</option>
+                    <option value="50">50 rows</option>
+                  </select>
+                </div>
+
+                <div class="table-responsive">
+                  <table class="table align-middle table-hover">
+                    <thead>
+                      <tr>
+                        <th>Student</th>
+                        <th>Fee Title</th>
+                        <th>Total</th>
+                        <th>Paid</th>
+                        <th>Balance</th>
+                        <th>Due Date</th>
+                        <th>Status</th>
+                        <th>Progress</th>
+                        <th class="text-end">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="fees-table-body">
+                      <tr>
+                        <td colspan="9" class="text-center text-muted py-4">Loading...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div id="fees-pagination"></div>
+              </section>
             </div>
 
-            <div class="fee-filters mb-3">
-              <div class="input-icon">
-                <i class="bi bi-search"></i>
-                <input id="fee-search" class="form-control" type="search" placeholder="Search student or fee" aria-label="Search fees">
-              </div>
-              <select id="fee-status-filter" class="form-select" aria-label="Filter by fee status">
-                <option value="">All statuses</option>
-                <option value="unpaid">Unpaid</option>
-                <option value="partial">Partial</option>
-                <option value="paid">Paid</option>
-                <option value="overdue">Overdue</option>
-              </select>
-              <select id="fee-course-filter" class="form-select" aria-label="Filter by course">
-                <option value="">All courses</option>
-              </select>
-              <div>
-                <label for="fee-due-after-filter" class="form-label">Due From</label>
-                <input id="fee-due-after-filter" class="form-control" type="date">
-              </div>
-              <div>
-                <label for="fee-due-before-filter" class="form-label">Due To</label>
-                <input id="fee-due-before-filter" class="form-control" type="date">
-              </div>
-              <select id="fee-sort" class="form-select" aria-label="Sort fees">
-                <option value="due_date:asc">Due Date Asc</option>
-                <option value="due_date:desc">Due Date Desc</option>
-                <option value="created_at:desc">Newest</option>
-                <option value="total_amount:desc">Amount High-Low</option>
-                <option value="total_amount:asc">Amount Low-High</option>
-              </select>
-              <select id="fee-page-size" class="form-select" aria-label="Rows per page">
-                <option value="10">10 rows</option>
-                <option value="25">25 rows</option>
-                <option value="50">50 rows</option>
-              </select>
-            </div>
+            <div class="tab-pane fade" id="fee-structures-panel" role="tabpanel">
+              <section class="content-panel">
+                <div class="panel-header panel-header-actions">
+                  <div>
+                    <h2>Fee Structures</h2>
+                    <p>Reusable course fee templates and batch assignment</p>
+                  </div>
+                  <div class="toolbar">
+                    <button id="open-add-structure" class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#feeStructureModal">
+                      <i class="bi bi-plus-lg"></i>
+                      Add Structure
+                    </button>
+                  </div>
+                </div>
 
-            <div class="table-responsive">
-              <table class="table align-middle table-hover">
-                <thead>
-                  <tr>
-                    <th>Student</th>
-                    <th>Fee Title</th>
-                    <th>Total</th>
-                    <th>Paid</th>
-                    <th>Balance</th>
-                    <th>Due Date</th>
-                    <th>Status</th>
-                    <th>Progress</th>
-                    <th class="text-end">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="fees-table-body">
-                  <tr>
-                    <td colspan="9" class="text-center text-muted py-4">Loading...</td>
-                  </tr>
-                </tbody>
-              </table>
+                <div class="fee-filters mb-3">
+                  <div class="input-icon">
+                    <i class="bi bi-search"></i>
+                    <input id="structure-search" class="form-control" type="search" placeholder="Search structures" aria-label="Search fee structures">
+                  </div>
+                  <select id="structure-course-filter" class="form-select" aria-label="Filter structure by course">
+                    <option value="">All courses</option>
+                  </select>
+                  <select id="structure-category-filter" class="form-select" aria-label="Filter structure by category">
+                    <option value="">All categories</option>
+                  </select>
+                  <select id="structure-active-filter" class="form-select" aria-label="Filter structure by status">
+                    <option value="">All statuses</option>
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                </div>
+
+                <div class="table-responsive">
+                  <table class="table align-middle table-hover">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Course</th>
+                        <th>Academic Year</th>
+                        <th>Semester</th>
+                        <th>Category</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Assigned</th>
+                        <th class="text-end">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="structures-table-body">
+                      <tr>
+                        <td colspan="9" class="text-center text-muted py-4">Loading...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div id="structures-pagination"></div>
+              </section>
             </div>
-            <div id="fees-pagination"></div>
-          </section>
+          </div>
         </main>
       </div>
     </div>
@@ -150,7 +226,6 @@
             <div class="modal-body">
               <div id="fee-form-alert"></div>
               <input id="fee-id" type="hidden">
-
               <div class="row g-3">
                 <div id="fee-student-field" class="col-md-6">
                   <label for="fee-student" class="form-label">Student</label>
@@ -186,6 +261,114 @@
       </div>
     </div>
 
+    <div class="modal fade" id="feeStructureModal" tabindex="-1" aria-labelledby="feeStructureModalTitle" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <form id="structure-form">
+            <div class="modal-header">
+              <h5 id="feeStructureModalTitle" class="modal-title">Add Fee Structure</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div id="structure-form-alert"></div>
+              <input id="structure-id" type="hidden">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="structure-name" class="form-label">Name</label>
+                  <input id="structure-name" class="form-control" type="text" required maxlength="150">
+                </div>
+                <div class="col-md-6">
+                  <label for="structure-total-amount" class="form-label">Total Amount</label>
+                  <input id="structure-total-amount" class="form-control" type="number" min="0.01" step="0.01" required>
+                </div>
+                <div class="col-md-6">
+                  <label for="structure-course" class="form-label">Course</label>
+                  <select id="structure-course" class="form-select" required></select>
+                </div>
+                <div class="col-md-6">
+                  <label for="structure-academic-year" class="form-label">Academic Year</label>
+                  <select id="structure-academic-year" class="form-select" required></select>
+                </div>
+                <div class="col-md-6">
+                  <label for="structure-semester" class="form-label">Semester</label>
+                  <select id="structure-semester" class="form-select">
+                    <option value="">No semester</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label for="structure-category" class="form-label">Category</label>
+                  <select id="structure-category" class="form-select" required></select>
+                </div>
+                <div class="col-md-6">
+                  <label for="structure-active" class="form-label">Status</label>
+                  <select id="structure-active" class="form-select">
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                </div>
+                <div class="col-md-12">
+                  <label for="structure-description" class="form-label">Description</label>
+                  <textarea id="structure-description" class="form-control" rows="3" maxlength="500"></textarea>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+              <button id="save-structure" type="submit" class="btn btn-primary">
+                <i class="bi bi-save"></i>
+                Save Structure
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="assignStructureModal" tabindex="-1" aria-labelledby="assignStructureModalTitle" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <form id="assign-structure-form">
+            <div class="modal-header">
+              <h5 id="assignStructureModalTitle" class="modal-title">Assign Fee Structure</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div id="assign-structure-alert"></div>
+              <input id="assign-structure-id" type="hidden">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="assign-target-type" class="form-label">Assign To</label>
+                  <select id="assign-target-type" class="form-select">
+                    <option value="student">Student</option>
+                    <option value="batch">Batch</option>
+                  </select>
+                </div>
+                <div id="assign-student-field" class="col-md-6">
+                  <label for="assign-student" class="form-label">Student</label>
+                  <select id="assign-student" class="form-select"></select>
+                </div>
+                <div id="assign-batch-field" class="col-md-6 d-none">
+                  <label for="assign-batch" class="form-label">Batch</label>
+                  <select id="assign-batch" class="form-select"></select>
+                </div>
+                <div class="col-md-6">
+                  <label for="assign-due-date" class="form-label">Due Date</label>
+                  <input id="assign-due-date" class="form-control" type="date" required>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+              <button id="save-assignment" type="submit" class="btn btn-primary">
+                <i class="bi bi-check2-circle"></i>
+                Assign
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
     <div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalTitle" aria-hidden="true">
       <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
@@ -197,10 +380,14 @@
             <div class="modal-body">
               <div id="payment-form-alert"></div>
               <input id="payment-fee-id" type="hidden">
-
               <div id="payment-fee-summary" class="attendance-mini-grid mb-3"></div>
-
               <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="payment-installment" class="form-label">Installment</label>
+                  <select id="payment-installment" class="form-select">
+                    <option value="">Overall fee balance</option>
+                  </select>
+                </div>
                 <div class="col-md-6">
                   <label for="payment-amount" class="form-label">Amount</label>
                   <input id="payment-amount" class="form-control" type="number" min="0.01" step="0.01" required>
@@ -250,28 +437,118 @@
           <div class="modal-body">
             <div id="fee-details-alert"></div>
             <div id="fee-details-summary" class="attendance-mini-grid mb-3"></div>
-            <div class="table-responsive">
-              <table class="table align-middle table-hover">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Amount</th>
-                    <th>Method</th>
-                    <th>Reference</th>
-                    <th>Recorded By</th>
-                    <th>Notes</th>
-                    <th class="text-end">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="payment-history-body">
-                  <tr>
-                    <td colspan="7" class="text-center text-muted py-4">Loading...</td>
-                  </tr>
-                </tbody>
-              </table>
+            <ul class="nav nav-tabs mb-3" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#installments-panel" type="button" role="tab">
+                  Installments
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#payments-panel" type="button" role="tab">
+                  Payments
+                </button>
+              </li>
+            </ul>
+            <div class="tab-content">
+              <div class="tab-pane fade show active" id="installments-panel" role="tabpanel">
+                <form id="installment-form" class="row g-2 align-items-end mb-3">
+                  <input id="installment-id" type="hidden">
+                  <div class="col-md-3">
+                    <label for="installment-title" class="form-label">Title</label>
+                    <input id="installment-title" class="form-control" type="text" maxlength="150">
+                  </div>
+                  <div class="col-md-2">
+                    <label for="installment-amount" class="form-label">Amount</label>
+                    <input id="installment-amount" class="form-control" type="number" min="0.01" step="0.01">
+                  </div>
+                  <div class="col-md-2">
+                    <label for="installment-due-date" class="form-label">Due Date</label>
+                    <input id="installment-due-date" class="form-control" type="date">
+                  </div>
+                  <div class="col-md-2">
+                    <label for="installment-sequence" class="form-label">Sequence</label>
+                    <input id="installment-sequence" class="form-control" type="number" min="1">
+                  </div>
+                  <div class="col-md-3">
+                    <button id="save-installment" class="btn btn-primary" type="submit">
+                      <i class="bi bi-save"></i>
+                      Save Installment
+                    </button>
+                  </div>
+                </form>
+                <div class="table-responsive">
+                  <table class="table align-middle table-hover">
+                    <thead>
+                      <tr>
+                        <th>Seq</th>
+                        <th>Title</th>
+                        <th>Amount</th>
+                        <th>Paid</th>
+                        <th>Balance</th>
+                        <th>Due Date</th>
+                        <th>Status</th>
+                        <th class="text-end">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="installments-table-body">
+                      <tr>
+                        <td colspan="8" class="text-center text-muted py-4">Loading...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="tab-pane fade" id="payments-panel" role="tabpanel">
+                <div class="table-responsive">
+                  <table class="table align-middle table-hover">
+                    <thead>
+                      <tr>
+                        <th>Receipt</th>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Method</th>
+                        <th>Reference</th>
+                        <th>Recorded By</th>
+                        <th>Notes</th>
+                        <th class="text-end">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="payment-history-body">
+                      <tr>
+                        <td colspan="8" class="text-center text-muted py-4">Loading...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
           <div class="modal-footer">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="receiptModal" tabindex="-1" aria-labelledby="receiptModalTitle" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 id="receiptModalTitle" class="modal-title">Payment Receipt</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div id="receipt-content"></div>
+          </div>
+          <div class="modal-footer">
+            <button id="print-receipt" type="button" class="btn btn-outline-secondary">
+              <i class="bi bi-printer"></i>
+              Print
+            </button>
+            <button id="download-receipt" type="button" class="btn btn-primary">
+              <i class="bi bi-filetype-pdf"></i>
+              Download PDF
+            </button>
             <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
           </div>
         </div>

@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from app.routers.academic_years import router as academic_years_router
 from app.routers.attendance import router as attendance_router
 from app.routers.attendance_sessions import router as attendance_sessions_router
+from app.routers.audit_logs import router as audit_logs_router
 from app.routers.auth import router as auth_router
 from app.routers.batches import router as batches_router
 from app.routers.courses import router as courses_router
@@ -46,6 +47,7 @@ app.include_router(payments_router)
 app.include_router(reports_router)
 app.include_router(dashboard_router)
 app.include_router(users_router)
+app.include_router(audit_logs_router)
 app.mount("/admin/assets", StaticFiles(directory=FRONTEND_DIR), name="admin-assets")
 
 
@@ -87,6 +89,11 @@ def read_admin_reports() -> FileResponse:
 @app.get("/admin/users", include_in_schema=False)
 def read_admin_users() -> FileResponse:
     return FileResponse(FRONTEND_DIR / "users.html")
+
+
+@app.get("/admin/audit-logs", include_in_schema=False)
+def read_admin_audit_logs() -> FileResponse:
+    return FileResponse(FRONTEND_DIR / "audit_logs.html")
 
 
 @app.get("/login", include_in_schema=False)

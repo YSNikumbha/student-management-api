@@ -4,9 +4,28 @@ from decimal import Decimal
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.models.academic_year import AcademicYear
+from app.models.batch import Batch
+from app.models.course import Course
+from app.models.fee_category import FeeCategory
+from app.models.fee_installment import FeeInstallment
+from app.models.fee_structure import FeeStructure
 from app.models.payment import Payment
+from app.models.semester import Semester
 from app.models.student import Student
 from app.models.student_fee import StudentFee
+from app.schemas.fee_structure import (
+    FeeCategoryCreate,
+    FeeCategoryUpdate,
+    FeeInstallmentCreate,
+    FeeInstallmentResponse,
+    FeeInstallmentUpdate,
+    FeeStructureAssignRequest,
+    FeeStructureCreate,
+    FeeStructureResponse,
+    FeeStructureUpdate,
+    InstallmentStatus,
+)
 from app.schemas.pagination import get_offset
 from app.schemas.student_fee import (
     FeeStatus,
@@ -28,7 +47,11 @@ def normalize_money(value: Decimal | int | float | str | None) -> Decimal:
 def get_fee_by_id(db: Session, fee_id: int) -> StudentFee | None:
     statement = (
         select(StudentFee)
-        .options(selectinload(StudentFee.student))
+        .options(
+            selectinload(StudentFee.student).selectinload(Student.course),
+            selectinload(StudentFee.fee_structure),
+            selectinload(StudentFee.installments),
+        )
         .where(StudentFee.id == fee_id)
     )
     return db.execute(statement).scalar_one_or_none()
@@ -272,6 +295,8 @@ def build_fee_response(
     return StudentFeeResponse(
         id=fee.id,
         student_id=fee.student_id,
+        fee_structure_id=fee.fee_structure_id,
+        fee_structure_name=fee.fee_structure.name if fee.fee_structure else None,
         student_code=student_code,
         student_name=student_name,
         course_id=course_id,
@@ -286,6 +311,430 @@ def build_fee_response(
         created_at=fee.created_at,
         updated_at=fee.updated_at,
     )
+
+
+def get_categories_paginated(
+    db: Session,
+    *,
+    search: str | None = None,
+    is_active: bool | None = None,
+    page: int = 1,
+    page_size: int = 100,
+) -> tuple[list[FeeCategory], int]:
+    statement = select(FeeCategory)
+
+    if search:
+        pattern = f"%{search.lower()}%"
+        statement = statement.where(
+            or_(
+                func.lower(FeeCategory.name).like(pattern),
+                func.lower(FeeCategory.description).like(pattern),
+            )
+        )
+
+    if is_active is not None:
+        statement = statement.where(FeeCategory.is_active == is_active)
+
+    total_items = db.execute(
+        select(func.count()).select_from(statement.order_by(None).subquery())
+    ).scalar_one()
+    statement = (
+        statement.order_by(FeeCategory.name.asc(), FeeCategory.id.asc())
+        .offset(get_offset(page, page_size))
+        .limit(page_size)
+    )
+    return list(db.execute(statement).scalars().all()), total_items
+
+
+def get_category_by_id(db: Session, category_id: int) -> FeeCategory | None:
+    return db.execute(select(FeeCategory).where(FeeCategory.id == category_id)).scalar_one_or_none()
+
+
+def get_category_by_name(db: Session, name: str) -> FeeCategory | None:
+    return db.execute(
+        select(FeeCategory).where(func.lower(FeeCategory.name) == name.lower())
+    ).scalar_one_or_none()
+
+
+def create_category(db: Session, category_data: FeeCategoryCreate) -> FeeCategory:
+    category = FeeCategory(**category_data.model_dump())
+    db.add(category)
+    db.commit()
+    db.refresh(category)
+    return category
+
+
+def update_category(
+    db: Session,
+    category: FeeCategory,
+    category_data: FeeCategoryUpdate,
+) -> FeeCategory:
+    for field, value in category_data.model_dump(exclude_unset=True).items():
+        setattr(category, field, value)
+    db.commit()
+    db.refresh(category)
+    return category
+
+
+def category_has_structures(db: Session, category_id: int) -> bool:
+    statement = select(FeeStructure.id).where(FeeStructure.category_id == category_id).limit(1)
+    return db.execute(statement).first() is not None
+
+
+def delete_category(db: Session, category: FeeCategory) -> None:
+    db.delete(category)
+    db.commit()
+
+
+def _structure_options():
+    return (
+        selectinload(FeeStructure.course),
+        selectinload(FeeStructure.academic_year),
+        selectinload(FeeStructure.semester),
+        selectinload(FeeStructure.category),
+        selectinload(FeeStructure.student_fees),
+    )
+
+
+def get_structure_by_id(db: Session, structure_id: int) -> FeeStructure | None:
+    statement = (
+        select(FeeStructure)
+        .options(*_structure_options())
+        .where(FeeStructure.id == structure_id)
+    )
+    return db.execute(statement).scalar_one_or_none()
+
+
+def get_structures_paginated(
+    db: Session,
+    *,
+    search: str | None = None,
+    course_id: int | None = None,
+    academic_year_id: int | None = None,
+    semester_id: int | None = None,
+    category_id: int | None = None,
+    is_active: bool | None = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> tuple[list[FeeStructure], int]:
+    statement = select(FeeStructure).options(*_structure_options())
+
+    if search:
+        pattern = f"%{search.lower()}%"
+        statement = statement.where(func.lower(FeeStructure.name).like(pattern))
+
+    if course_id is not None:
+        statement = statement.where(FeeStructure.course_id == course_id)
+
+    if academic_year_id is not None:
+        statement = statement.where(FeeStructure.academic_year_id == academic_year_id)
+
+    if semester_id is not None:
+        statement = statement.where(FeeStructure.semester_id == semester_id)
+
+    if category_id is not None:
+        statement = statement.where(FeeStructure.category_id == category_id)
+
+    if is_active is not None:
+        statement = statement.where(FeeStructure.is_active == is_active)
+
+    total_items = db.execute(
+        select(func.count()).select_from(
+            statement.with_only_columns(FeeStructure.id).order_by(None).subquery()
+        )
+    ).scalar_one()
+    statement = (
+        statement.order_by(FeeStructure.created_at.desc(), FeeStructure.id.desc())
+        .offset(get_offset(page, page_size))
+        .limit(page_size)
+    )
+    return list(db.execute(statement).scalars().all()), total_items
+
+
+def create_structure(db: Session, structure_data: FeeStructureCreate) -> FeeStructure:
+    structure = FeeStructure(**structure_data.model_dump())
+    db.add(structure)
+    db.commit()
+    db.refresh(structure)
+    return get_structure_by_id(db, structure.id) or structure
+
+
+def update_structure(
+    db: Session,
+    structure: FeeStructure,
+    structure_data: FeeStructureUpdate,
+) -> FeeStructure:
+    for field, value in structure_data.model_dump(exclude_unset=True).items():
+        setattr(structure, field, value)
+    db.commit()
+    db.refresh(structure)
+    return get_structure_by_id(db, structure.id) or structure
+
+
+def structure_has_assignments(db: Session, structure_id: int) -> bool:
+    statement = select(StudentFee.id).where(StudentFee.fee_structure_id == structure_id).limit(1)
+    return db.execute(statement).first() is not None
+
+
+def delete_structure(db: Session, structure: FeeStructure) -> None:
+    db.delete(structure)
+    db.commit()
+
+
+def build_structure_response(structure: FeeStructure) -> FeeStructureResponse:
+    return FeeStructureResponse(
+        id=structure.id,
+        name=structure.name,
+        course_id=structure.course_id,
+        course_name=structure.course.name if structure.course else None,
+        academic_year_id=structure.academic_year_id,
+        academic_year_name=structure.academic_year.name if structure.academic_year else None,
+        semester_id=structure.semester_id,
+        semester_name=structure.semester.name if structure.semester else None,
+        category_id=structure.category_id,
+        category_name=structure.category.name if structure.category else None,
+        total_amount=normalize_money(structure.total_amount),
+        description=structure.description,
+        is_active=structure.is_active,
+        created_at=structure.created_at,
+        assignment_count=len(structure.student_fees),
+    )
+
+
+def _installment_paid_amount_expression():
+    return (
+        select(
+            Payment.fee_installment_id,
+            func.coalesce(func.sum(Payment.amount), 0).label("paid_amount"),
+        )
+        .where(Payment.fee_installment_id.is_not(None))
+        .group_by(Payment.fee_installment_id)
+        .subquery()
+    )
+
+
+def calculate_installment_paid_amount(db: Session, installment_id: int) -> Decimal:
+    statement = select(func.coalesce(func.sum(Payment.amount), 0)).where(
+        Payment.fee_installment_id == installment_id,
+    )
+    return normalize_money(db.execute(statement).scalar_one())
+
+
+def calculate_installment_status(
+    installment: FeeInstallment,
+    paid_amount: Decimal,
+    today: date | None = None,
+) -> InstallmentStatus:
+    balance = normalize_money(installment.amount) - normalize_money(paid_amount)
+    current_date = today or date.today()
+    if balance <= ZERO_MONEY:
+        return InstallmentStatus.paid
+    if paid_amount > ZERO_MONEY:
+        return InstallmentStatus.partial
+    if current_date > installment.due_date:
+        return InstallmentStatus.overdue
+    return InstallmentStatus.unpaid
+
+
+def build_installment_response(
+    db: Session,
+    installment: FeeInstallment,
+    paid_amount: Decimal | None = None,
+) -> FeeInstallmentResponse:
+    paid = paid_amount if paid_amount is not None else calculate_installment_paid_amount(db, installment.id)
+    balance = normalize_money(installment.amount) - normalize_money(paid)
+    return FeeInstallmentResponse(
+        id=installment.id,
+        student_fee_id=installment.student_fee_id,
+        title=installment.title,
+        amount=normalize_money(installment.amount),
+        due_date=installment.due_date,
+        sequence_number=installment.sequence_number,
+        paid_amount=paid,
+        balance=balance if balance > ZERO_MONEY else ZERO_MONEY,
+        status=calculate_installment_status(installment, paid),
+    )
+
+
+def get_installment_by_id(db: Session, installment_id: int) -> FeeInstallment | None:
+    statement = select(FeeInstallment).where(FeeInstallment.id == installment_id)
+    return db.execute(statement).scalar_one_or_none()
+
+
+def get_installments_for_fee(db: Session, fee_id: int) -> list[FeeInstallment]:
+    statement = (
+        select(FeeInstallment)
+        .where(FeeInstallment.student_fee_id == fee_id)
+        .order_by(FeeInstallment.sequence_number.asc(), FeeInstallment.id.asc())
+    )
+    return list(db.execute(statement).scalars().all())
+
+
+def _installment_total(
+    db: Session,
+    fee_id: int,
+    *,
+    exclude_installment_id: int | None = None,
+) -> Decimal:
+    statement = select(func.coalesce(func.sum(FeeInstallment.amount), 0)).where(
+        FeeInstallment.student_fee_id == fee_id,
+    )
+    if exclude_installment_id is not None:
+        statement = statement.where(FeeInstallment.id != exclude_installment_id)
+    return normalize_money(db.execute(statement).scalar_one())
+
+
+def validate_installment_total(
+    db: Session,
+    fee: StudentFee,
+    new_amount: Decimal,
+    *,
+    exclude_installment_id: int | None = None,
+) -> None:
+    total = _installment_total(db, fee.id, exclude_installment_id=exclude_installment_id)
+    if total + normalize_money(new_amount) > normalize_money(fee.total_amount):
+        raise ValueError("Installment total cannot exceed fee amount")
+
+
+def create_installment(
+    db: Session,
+    fee: StudentFee,
+    installment_data: FeeInstallmentCreate,
+) -> FeeInstallment:
+    validate_installment_total(db, fee, installment_data.amount)
+    installment = FeeInstallment(
+        student_fee_id=fee.id,
+        **installment_data.model_dump(),
+    )
+    db.add(installment)
+    db.commit()
+    db.refresh(installment)
+    return installment
+
+
+def update_installment(
+    db: Session,
+    fee: StudentFee,
+    installment: FeeInstallment,
+    installment_data: FeeInstallmentUpdate,
+) -> FeeInstallment:
+    update_data = installment_data.model_dump(exclude_unset=True)
+    amount = update_data.get("amount", installment.amount)
+    validate_installment_total(
+        db,
+        fee,
+        amount,
+        exclude_installment_id=installment.id,
+    )
+    for field, value in update_data.items():
+        setattr(installment, field, value)
+    db.commit()
+    db.refresh(installment)
+    return installment
+
+
+def installment_has_payments(db: Session, installment_id: int) -> bool:
+    statement = select(Payment.id).where(Payment.fee_installment_id == installment_id).limit(1)
+    return db.execute(statement).first() is not None
+
+
+def delete_installment(db: Session, installment: FeeInstallment) -> None:
+    db.delete(installment)
+    db.commit()
+
+
+def _create_installments_for_fee(
+    db: Session,
+    fee: StudentFee,
+    installments: list[FeeInstallmentCreate],
+) -> None:
+    total = sum((normalize_money(item.amount) for item in installments), ZERO_MONEY)
+    if total > normalize_money(fee.total_amount):
+        raise ValueError("Installment total cannot exceed fee amount")
+
+    for item in installments:
+        db.add(
+            FeeInstallment(
+                student_fee_id=fee.id,
+                **item.model_dump(),
+            )
+        )
+
+
+def assign_structure(
+    db: Session,
+    structure: FeeStructure,
+    assignment_data: FeeStructureAssignRequest,
+    *,
+    created_by: int,
+) -> tuple[int, int, list[int]]:
+    if assignment_data.student_id is not None:
+        students = list(
+            db.execute(
+                select(Student).where(Student.id == assignment_data.student_id)
+            ).scalars().all()
+        )
+    else:
+        students = list(
+            db.execute(
+                select(Student)
+                .where(Student.batch_id == assignment_data.batch_id)
+                .order_by(Student.id.asc())
+            ).scalars().all()
+        )
+
+    created_ids: list[int] = []
+    skipped = 0
+
+    try:
+        for student in students:
+            exists = db.execute(
+                select(StudentFee.id).where(
+                    StudentFee.student_id == student.id,
+                    StudentFee.fee_structure_id == structure.id,
+                )
+            ).first()
+            if exists is not None:
+                skipped += 1
+                continue
+
+            fee = StudentFee(
+                student_id=student.id,
+                fee_structure_id=structure.id,
+                title=structure.name,
+                description=structure.description,
+                total_amount=structure.total_amount,
+                due_date=assignment_data.due_date,
+                created_by=created_by,
+            )
+            db.add(fee)
+            db.flush()
+            _create_installments_for_fee(db, fee, assignment_data.installments)
+            created_ids.append(fee.id)
+
+        db.commit()
+        return len(created_ids), skipped, created_ids
+    except Exception:
+        db.rollback()
+        raise
+
+
+def get_course(db: Session, course_id: int) -> Course | None:
+    return db.execute(select(Course).where(Course.id == course_id)).scalar_one_or_none()
+
+
+def get_academic_year(db: Session, academic_year_id: int) -> AcademicYear | None:
+    return db.execute(
+        select(AcademicYear).where(AcademicYear.id == academic_year_id)
+    ).scalar_one_or_none()
+
+
+def get_semester(db: Session, semester_id: int) -> Semester | None:
+    return db.execute(select(Semester).where(Semester.id == semester_id)).scalar_one_or_none()
+
+
+def get_batch(db: Session, batch_id: int) -> Batch | None:
+    return db.execute(select(Batch).where(Batch.id == batch_id)).scalar_one_or_none()
 
 
 def get_fee_detail(db: Session, fee: StudentFee) -> StudentFeeResponse:

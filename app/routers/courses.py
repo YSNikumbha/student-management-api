@@ -1,15 +1,16 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
 from app.dependencies.auth import get_current_user, require_admin
 from app.models.course import Course
+from app.models.user import User
 from app.schemas.course import CourseCreate, CourseResponse, CourseUpdate
 from app.schemas.pagination import PaginatedResponse, build_paginated_response
-from app.services import course_service
+from app.services import audit_service, course_service
 
 
 router = APIRouter(
@@ -26,11 +27,12 @@ def _duplicate_detail(_error: IntegrityError) -> str:
     "",
     response_model=CourseResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_admin)],
 )
 def create_course(
     course_data: CourseCreate,
+    request: Request,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ) -> Course:
     if course_service.get_course_by_code(db, course_data.code):
         raise HTTPException(
@@ -39,13 +41,24 @@ def create_course(
         )
 
     try:
-        return course_service.create_course(db, course_data)
+        course = course_service.create_course(db, course_data)
     except IntegrityError as error:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=_duplicate_detail(error),
         ) from error
+    audit_service.record_audit_event(
+        db,
+        user_id=current_user.id,
+        action="course_created",
+        entity_type="course",
+        entity_id=course.id,
+        description=f"Course {course.code} created",
+        metadata_json={"code": course.code, "name": course.name},
+        ip_address=audit_service.get_request_ip(request),
+    )
+    return course
 
 
 @router.get(
@@ -101,7 +114,9 @@ def get_course(
 def update_course(
     course_id: int,
     course_data: CourseUpdate,
+    request: Request,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ) -> Course:
     course = course_service.get_course_by_id(db, course_id)
     if course is None:
@@ -121,13 +136,24 @@ def update_course(
             )
 
     try:
-        return course_service.update_course(db, course, course_data)
+        updated_course = course_service.update_course(db, course, course_data)
     except IntegrityError as error:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=_duplicate_detail(error),
         ) from error
+    audit_service.record_audit_event(
+        db,
+        user_id=current_user.id,
+        action="course_updated",
+        entity_type="course",
+        entity_id=updated_course.id,
+        description=f"Course {updated_course.code} updated",
+        metadata_json={"updated_fields": sorted(update_data.keys())},
+        ip_address=audit_service.get_request_ip(request),
+    )
+    return updated_course
 
 
 @router.delete(

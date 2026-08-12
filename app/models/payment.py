@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base
 
 if TYPE_CHECKING:
+    from app.models.fee_installment import FeeInstallment
     from app.models.student_fee import StudentFee
     from app.models.user import User
 
@@ -31,6 +32,17 @@ class Payment(Base):
         nullable=False,
         index=True,
     )
+    fee_installment_id: Mapped[int | None] = mapped_column(
+        ForeignKey("fee_installments.id"),
+        nullable=True,
+        index=True,
+    )
+    receipt_number: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        unique=True,
+        index=True,
+    )
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     payment_date: Mapped[date] = mapped_column(Date, nullable=False)
     payment_method: Mapped[str] = mapped_column(String(30), nullable=False)
@@ -44,4 +56,5 @@ class Payment(Base):
     )
 
     student_fee: Mapped[StudentFee] = relationship(back_populates="payments")
+    fee_installment: Mapped[FeeInstallment | None] = relationship(back_populates="payments")
     recorder: Mapped[User] = relationship(back_populates="recorded_payments")

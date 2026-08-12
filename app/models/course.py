@@ -10,6 +10,7 @@ from app.database.base import Base
 
 if TYPE_CHECKING:
     from app.models.batch import Batch
+    from app.models.fee_structure import FeeStructure
     from app.models.semester import Semester
     from app.models.student import Student
     from app.models.subject import Subject
@@ -40,3 +41,4 @@ class Course(Base):
     subjects: Mapped[list[Subject]] = relationship(back_populates="course", cascade="all, delete-orphan")
     batches: Mapped[list[Batch]] = relationship(back_populates="course", cascade="all, delete-orphan")
     attendance_sessions: Mapped[list["AttendanceSession"]] = relationship(back_populates="course")
+    fee_structures: Mapped[list[FeeStructure]] = relationship(back_populates="course")

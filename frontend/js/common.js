@@ -11,6 +11,7 @@ const AdminApp = (() => {
     { key: "fees", label: "Fees", icon: "bi-cash-coin", href: "/admin/fees", roles: ["admin", "accountant", "staff"] },
     { key: "reports", label: "Reports", icon: "bi-bar-chart", href: "/admin/reports", roles: ALL_ROLES },
     { key: "users", label: "Users", icon: "bi-person-gear", href: "/admin/users", roles: ["admin"] },
+    { key: "audit-logs", label: "Audit Logs", icon: "bi-clipboard-data", href: "/admin/audit-logs", roles: ["admin"] },
   ];
 
   // ============================================

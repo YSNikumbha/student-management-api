@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -19,7 +19,7 @@ from app.schemas.attendance import (
     StudentAttendanceSummary,
 )
 from app.schemas.pagination import PaginatedResponse, build_paginated_response
-from app.services import attendance_service, course_service, student_service
+from app.services import audit_service, attendance_service, course_service, student_service
 
 
 router = APIRouter(
@@ -51,6 +51,7 @@ def _get_course_or_404(db: Session, course_id: int) -> None:
 )
 def create_attendance(
     attendance_data: AttendanceCreate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_attendance_editor),
 ) -> Attendance:
@@ -68,7 +69,7 @@ def create_attendance(
         )
 
     try:
-        return attendance_service.create_attendance(
+        attendance = attendance_service.create_attendance(
             db,
             attendance_data,
             marked_by=current_user.id,
@@ -79,11 +80,27 @@ def create_attendance(
             status_code=status.HTTP_409_CONFLICT,
             detail="Attendance already exists for this student on this date",
         ) from error
+    audit_service.record_audit_event(
+        db,
+        user_id=current_user.id,
+        action="attendance_changed",
+        entity_type="attendance",
+        entity_id=attendance.id,
+        description="Attendance record created",
+        metadata_json={
+            "student_id": attendance.student_id,
+            "date": attendance.date,
+            "status": attendance.status,
+        },
+        ip_address=audit_service.get_request_ip(request),
+    )
+    return attendance
 
 
 @router.post("/bulk", response_model=AttendanceBulkResponse)
 def bulk_mark_attendance(
     attendance_data: AttendanceBulkCreate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_attendance_editor),
 ) -> AttendanceBulkResponse:
@@ -120,6 +137,21 @@ def bulk_mark_attendance(
             detail="Attendance already exists for this student on this date",
         ) from error
 
+    audit_service.record_audit_event(
+        db,
+        user_id=current_user.id,
+        action="attendance_changed",
+        entity_type="attendance",
+        entity_id=None,
+        description="Bulk attendance saved",
+        metadata_json={
+            "date": attendance_data.date,
+            "created": created,
+            "updated": updated,
+            "record_count": len(records),
+        },
+        ip_address=audit_service.get_request_ip(request),
+    )
     return AttendanceBulkResponse(
         date=attendance_data.date,
         created=created,
@@ -256,6 +288,7 @@ def get_attendance_by_id(
 def update_attendance(
     attendance_id: int,
     attendance_data: AttendanceUpdate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_attendance_editor),
 ) -> Attendance:
@@ -266,12 +299,23 @@ def update_attendance(
             detail="Attendance record not found",
         )
 
-    return attendance_service.update_attendance(
+    updated_attendance = attendance_service.update_attendance(
         db,
         attendance,
         attendance_data,
         marked_by=current_user.id,
     )
+    audit_service.record_audit_event(
+        db,
+        user_id=current_user.id,
+        action="attendance_changed",
+        entity_type="attendance",
+        entity_id=updated_attendance.id,
+        description="Attendance record updated",
+        metadata_json=attendance_data.model_dump(exclude_unset=True),
+        ip_address=audit_service.get_request_ip(request),
+    )
+    return updated_attendance
 
 
 @router.delete(
@@ -281,7 +325,9 @@ def update_attendance(
 )
 def delete_attendance(
     attendance_id: int,
+    request: Request,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ) -> Response:
     attendance = attendance_service.get_attendance_by_id(db, attendance_id)
     if attendance is None:
@@ -290,5 +336,20 @@ def delete_attendance(
             detail="Attendance record not found",
         )
 
+    metadata = {
+        "student_id": attendance.student_id,
+        "date": attendance.date,
+        "status": attendance.status,
+    }
     attendance_service.delete_attendance(db, attendance)
+    audit_service.record_audit_event(
+        db,
+        user_id=current_user.id,
+        action="attendance_deleted",
+        entity_type="attendance",
+        entity_id=attendance_id,
+        description="Attendance record deleted",
+        metadata_json=metadata,
+        ip_address=audit_service.get_request_ip(request),
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

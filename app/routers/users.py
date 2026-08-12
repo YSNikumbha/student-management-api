@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -7,7 +7,7 @@ from app.dependencies.auth import require_admin
 from app.models.user import User
 from app.schemas.pagination import PaginatedResponse, build_paginated_response
 from app.schemas.user import PasswordResetRequest, UserCreate, UserResponse, UserUpdate
-from app.services import user_service
+from app.services import audit_service, user_service
 
 
 router = APIRouter(
@@ -63,19 +63,31 @@ def get_users(
 )
 def create_user(
     user_data: UserCreate,
+    request: Request,
     db: Session = Depends(get_db),
-    _current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ) -> User:
     _ensure_unique_email(db, str(user_data.email))
 
     try:
-        return user_service.create_user(db, user_data)
+        user = user_service.create_user(db, user_data)
     except IntegrityError as error:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="User could not be created",
         ) from error
+    audit_service.record_audit_event(
+        db,
+        user_id=current_user.id,
+        action="user_created",
+        entity_type="user",
+        entity_id=user.id,
+        description=f"User {user.email} created",
+        metadata_json={"email": user.email, "role": user.role},
+        ip_address=audit_service.get_request_ip(request),
+    )
+    return user
 
 
 @router.get("/{user_id}", response_model=UserResponse)
@@ -91,11 +103,14 @@ def get_user(
 def update_user(
     user_id: int,
     user_data: UserUpdate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ) -> User:
     user = _get_user_or_404(db, user_id)
     update_data = user_data.model_dump(exclude_unset=True)
+    old_role = user.role
+    old_is_active = user.is_active
 
     if user.id == current_user.id:
         if update_data.get("is_active") is False:
@@ -113,18 +128,51 @@ def update_user(
         _ensure_unique_email(db, str(user_data.email), user_id=user.id)
 
     try:
-        return user_service.update_user(db, user, user_data)
+        updated_user = user_service.update_user(db, user, user_data)
     except IntegrityError as error:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="User could not be updated",
         ) from error
+    audit_service.record_audit_event(
+        db,
+        user_id=current_user.id,
+        action="user_updated",
+        entity_type="user",
+        entity_id=updated_user.id,
+        description=f"User {updated_user.email} updated",
+        metadata_json={"updated_fields": sorted(update_data.keys())},
+        ip_address=audit_service.get_request_ip(request),
+    )
+    if updated_user.role != old_role:
+        audit_service.record_audit_event(
+            db,
+            user_id=current_user.id,
+            action="role_changed",
+            entity_type="user",
+            entity_id=updated_user.id,
+            description=f"User {updated_user.email} role changed",
+            metadata_json={"old_role": old_role, "new_role": updated_user.role},
+            ip_address=audit_service.get_request_ip(request),
+        )
+    if old_is_active and not updated_user.is_active:
+        audit_service.record_audit_event(
+            db,
+            user_id=current_user.id,
+            action="user_deactivated",
+            entity_type="user",
+            entity_id=updated_user.id,
+            description=f"User {updated_user.email} deactivated",
+            ip_address=audit_service.get_request_ip(request),
+        )
+    return updated_user
 
 
 @router.patch("/{user_id}/deactivate", response_model=UserResponse)
 def deactivate_user(
     user_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ) -> User:
@@ -134,25 +182,58 @@ def deactivate_user(
             detail="You cannot deactivate your own account",
         )
     user = _get_user_or_404(db, user_id)
-    return user_service.set_user_active(db, user, False)
+    updated_user = user_service.set_user_active(db, user, False)
+    audit_service.record_audit_event(
+        db,
+        user_id=current_user.id,
+        action="user_deactivated",
+        entity_type="user",
+        entity_id=updated_user.id,
+        description=f"User {updated_user.email} deactivated",
+        ip_address=audit_service.get_request_ip(request),
+    )
+    return updated_user
 
 
 @router.patch("/{user_id}/activate", response_model=UserResponse)
 def activate_user(
     user_id: int,
+    request: Request,
     db: Session = Depends(get_db),
-    _current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ) -> User:
     user = _get_user_or_404(db, user_id)
-    return user_service.set_user_active(db, user, True)
+    updated_user = user_service.set_user_active(db, user, True)
+    audit_service.record_audit_event(
+        db,
+        user_id=current_user.id,
+        action="user_updated",
+        entity_type="user",
+        entity_id=updated_user.id,
+        description=f"User {updated_user.email} activated",
+        metadata_json={"is_active": True},
+        ip_address=audit_service.get_request_ip(request),
+    )
+    return updated_user
 
 
 @router.post("/{user_id}/reset-password", response_model=UserResponse)
 def reset_user_password(
     user_id: int,
     password_data: PasswordResetRequest,
+    request: Request,
     db: Session = Depends(get_db),
-    _current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ) -> User:
     user = _get_user_or_404(db, user_id)
-    return user_service.reset_user_password(db, user, password_data.new_password)
+    updated_user = user_service.reset_user_password(db, user, password_data.new_password)
+    audit_service.record_audit_event(
+        db,
+        user_id=current_user.id,
+        action="user_password_reset",
+        entity_type="user",
+        entity_id=updated_user.id,
+        description=f"User {updated_user.email} password reset",
+        ip_address=audit_service.get_request_ip(request),
+    )
+    return updated_user
