@@ -13,11 +13,16 @@ from app.core.security import hash_password
 from app.database.base import Base
 from app.database.database import get_db
 from app.main import app
+from app.models.academic_year import AcademicYear
 from app.models.attendance import Attendance
+from app.models.attendance_session import AttendanceSession
+from app.models.batch import Batch
 from app.models.course import Course
 from app.models.payment import Payment
+from app.models.semester import Semester
 from app.models.student import Student
 from app.models.student_fee import StudentFee
+from app.models.subject import Subject
 from app.models.user import User
 
 
@@ -77,6 +82,13 @@ def test_db(test_engine) -> Generator[Session, None, None]:
     session.close()
     transaction.rollback()
     connection.close()
+
+
+# Alias for tests that use 'db' instead of 'test_db'
+@pytest.fixture(scope="function")
+def db(test_db) -> Session:
+    """Alias for test_db to maintain compatibility with tests using 'db'."""
+    return test_db
 
 
 @pytest.fixture(scope="function")
@@ -214,6 +226,10 @@ def test_course_with_students(test_db, test_course) -> Course:
         )
         for i in range(1, 4)
     ]
+    # Fix names to not contain numbers to pass validation
+    for i, student in enumerate(students):
+        student.first_name = f"Student{chr(64+i)}"  # StudentA, StudentB, StudentC
+        student.last_name = f"Last{chr(64+i)}"      # LastA, LastB, LastC
     test_db.add_all(students)
     test_db.commit()
     return test_course

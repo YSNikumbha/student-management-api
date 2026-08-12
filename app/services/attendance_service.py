@@ -275,6 +275,7 @@ def calculate_student_attendance_summary(
     present_days = sum(1 for record in records if record.status == "present")
     absent_days = sum(1 for record in records if record.status == "absent")
     late_days = sum(1 for record in records if record.status == "late")
+    excused_days = sum(1 for record in records if record.status == "excused")
     attendance_percentage = (
         round((present_days / total_marked_days) * 100, 2)
         if total_marked_days
@@ -287,5 +288,11 @@ def calculate_student_attendance_summary(
         "present_days": present_days,
         "absent_days": absent_days,
         "late_days": late_days,
+        "excused_days": excused_days,
         "attendance_percentage": attendance_percentage,
+        "total_sessions": total_marked_days,
+        "present": present_days,
+        "absent": absent_days,
+        "late": late_days,
+        "excused": excused_days,
     }

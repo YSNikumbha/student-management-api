@@ -67,6 +67,7 @@ class Student(Base):
     academic_year: Mapped[AcademicYear | None] = relationship(back_populates="students")
     semester: Mapped[Semester | None] = relationship(back_populates="students")
     batch: Mapped[Batch | None] = relationship(back_populates="students")
+    attendances: Mapped[list["Attendance"]] = relationship(back_populates="student")
     fees: Mapped[list[StudentFee]] = relationship(
         back_populates="student",
         passive_deletes=True,

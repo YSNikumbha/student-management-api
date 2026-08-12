@@ -60,12 +60,13 @@ def get_semesters(
     page_size: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db),
 ) -> dict:
+    skip = (page - 1) * page_size
     semesters, total_items = semester_service.get_semesters_paginated(
         db,
         academic_year_id=academic_year_id,
         course_id=course_id,
-        page=page,
-        page_size=page_size,
+        skip=skip,
+        limit=page_size,
     )
     return build_paginated_response(semesters, page, page_size, total_items)
 
@@ -123,7 +124,7 @@ def update_semester(
             )
 
     try:
-        return semester_service.update_semester(db, semester, semester_data)
+        return semester_service.update_semester(db, semester_id, semester_data)
     except IntegrityError as error:
         db.rollback()
         raise HTTPException(
@@ -154,5 +155,5 @@ def delete_semester(
             detail="Cannot delete semester because it has associated subjects or batches",
         )
 
-    semester_service.delete_semester(db, semester)
+    semester_service.delete_semester(db, semester_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

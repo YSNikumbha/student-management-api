@@ -46,3 +46,4 @@ class Subject(Base):
 
     course: Mapped[Course] = relationship(back_populates="subjects")
     semester: Mapped[Semester] = relationship(back_populates="subjects")
+    attendance_sessions: Mapped[list["AttendanceSession"]] = relationship(back_populates="subject")

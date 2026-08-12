@@ -371,7 +371,7 @@ const AdminApp = (() => {
     }
   }
 
-  async function downloadAuthenticatedFile(url) {
+  async function downloadAuthenticatedFile(url, fallbackFilename = "download") {
     const token = getToken();
     if (!token) {
       redirectToLogin();
@@ -397,7 +397,26 @@ const AdminApp = (() => {
       throw error;
     }
 
-    return response;
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get("content-disposition") || "";
+    const filenameMatch = contentDisposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+    const filename = filenameMatch
+      ? decodeURIComponent(filenameMatch[1])
+      : fallbackFilename;
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    try {
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+    } finally {
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    }
+
+    return { filename, blob };
   }
 
   async function handleResponse(response) {
@@ -861,6 +880,7 @@ const AdminApp = (() => {
     clearFormErrors,
     confirmAction,
     debounce,
+    downloadAuthenticatedFile,
     escapeHtml,
     feeStatusBadge,
     focusFirstInvalidField,

@@ -59,13 +59,14 @@ def get_subjects(
     page_size: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db),
 ) -> dict:
+    skip = (page - 1) * page_size
     subjects, total_items = subject_service.get_subjects_paginated(
         db,
         course_id=course_id,
         semester_id=semester_id,
         search=search,
-        page=page,
-        page_size=page_size,
+        skip=skip,
+        limit=page_size,
     )
     return build_paginated_response(subjects, page, page_size, total_items)
 
@@ -116,7 +117,7 @@ def update_subject(
             )
 
     try:
-        return subject_service.update_subject(db, subject, subject_data)
+        return subject_service.update_subject(db, subject_id, subject_data)
     except IntegrityError as error:
         db.rollback()
         raise HTTPException(
@@ -141,5 +142,5 @@ def delete_subject(
             detail="Subject not found",
         )
 
-    subject_service.delete_subject(db, subject)
+    subject_service.delete_subject(db, subject_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

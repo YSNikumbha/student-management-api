@@ -6,6 +6,7 @@ from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.attendance import Attendance
+from app.models.attendance_session import AttendanceSession
 from app.models.course import Course
 from app.models.payment import Payment
 from app.models.student import Student
@@ -18,6 +19,14 @@ from app.schemas.report import (
     FeeReportItem,
     StudentReportItem,
 )
+
+
+def _attendance_effective_date():
+    return func.coalesce(Attendance.date, func.date(AttendanceSession.date))
+
+
+def _attendance_course_id():
+    return func.coalesce(Student.course_id, AttendanceSession.course_id)
 
 
 def get_student_report(
@@ -108,10 +117,13 @@ def get_attendance_report(
     page: int = 1,
     page_size: int = 100,
 ) -> tuple[list[AttendanceReportItem | DetailedAttendanceItem], int]:
+    attendance_date = _attendance_effective_date()
+    attendance_course_id = _attendance_course_id()
+
     if detail:
         statement = (
             select(
-                Attendance.date,
+                attendance_date.label("date"),
                 Student.student_code,
                 (Student.first_name + " " + Student.last_name).label("student_name"),
                 Course.name.label("course_name"),
@@ -120,20 +132,24 @@ def get_attendance_report(
                 Attendance.marked_by,
             )
             .join(Student, Attendance.student_id == Student.id)
-            .outerjoin(Course, Student.course_id == Course.id)
+            .outerjoin(
+                AttendanceSession,
+                Attendance.attendance_session_id == AttendanceSession.id,
+            )
+            .outerjoin(Course, Course.id == attendance_course_id)
         )
 
         if course_id is not None:
-            statement = statement.where(Student.course_id == course_id)
+            statement = statement.where(attendance_course_id == course_id)
 
         if student_id is not None:
             statement = statement.where(Attendance.student_id == student_id)
 
         if start_date is not None:
-            statement = statement.where(Attendance.date >= start_date)
+            statement = statement.where(attendance_date >= start_date)
 
         if end_date is not None:
-            statement = statement.where(Attendance.date <= end_date)
+            statement = statement.where(attendance_date <= end_date)
 
         count_statement = select(func.count()).select_from(
             statement.order_by(None).subquery(),
@@ -141,7 +157,7 @@ def get_attendance_report(
         total_items = db.execute(count_statement).scalar_one()
 
         statement = (
-            statement.order_by(Attendance.date.desc(), Student.student_code)
+            statement.order_by(attendance_date.desc(), Student.student_code)
             .offset((page - 1) * page_size)
             .limit(page_size)
         )
@@ -165,20 +181,24 @@ def get_attendance_report(
         select(Attendance.student_id)
         .select_from(Attendance)
         .join(Student, Attendance.student_id == Student.id)
-        .outerjoin(Course, Student.course_id == Course.id)
+        .outerjoin(
+            AttendanceSession,
+            Attendance.attendance_session_id == AttendanceSession.id,
+        )
+        .outerjoin(Course, Course.id == attendance_course_id)
     )
 
     if course_id is not None:
-        student_ids_subquery = student_ids_subquery.where(Student.course_id == course_id)
+        student_ids_subquery = student_ids_subquery.where(attendance_course_id == course_id)
 
     if student_id is not None:
         student_ids_subquery = student_ids_subquery.where(Attendance.student_id == student_id)
 
     if start_date is not None:
-        student_ids_subquery = student_ids_subquery.where(Attendance.date >= start_date)
+        student_ids_subquery = student_ids_subquery.where(attendance_date >= start_date)
 
     if end_date is not None:
-        student_ids_subquery = student_ids_subquery.where(Attendance.date <= end_date)
+        student_ids_subquery = student_ids_subquery.where(attendance_date <= end_date)
 
     distinct_student_ids = student_ids_subquery.distinct().subquery()
 
@@ -191,18 +211,22 @@ def get_attendance_report(
             func.sum(case((Attendance.status == "late", 1), else_=0)).label("late_days"),
         )
         .join(Student, Attendance.student_id == Student.id)
-        .outerjoin(Course, Student.course_id == Course.id)
+        .outerjoin(
+            AttendanceSession,
+            Attendance.attendance_session_id == AttendanceSession.id,
+        )
+        .outerjoin(Course, Course.id == attendance_course_id)
         .group_by(Attendance.student_id)
     )
 
     if course_id is not None:
-        summary_subquery = summary_subquery.where(Student.course_id == course_id)
+        summary_subquery = summary_subquery.where(attendance_course_id == course_id)
 
     if start_date is not None:
-        summary_subquery = summary_subquery.where(Attendance.date >= start_date)
+        summary_subquery = summary_subquery.where(attendance_date >= start_date)
 
     if end_date is not None:
-        summary_subquery = summary_subquery.where(Attendance.date <= end_date)
+        summary_subquery = summary_subquery.where(attendance_date <= end_date)
 
     summary = summary_subquery.subquery()
 

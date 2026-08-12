@@ -11,6 +11,7 @@ from app.database.base import Base
 if TYPE_CHECKING:
     from app.models.academic_year import AcademicYear
     from app.models.course import Course
+    from app.models.student import Student
     from app.models.subject import Subject
     from app.models.batch import Batch
 
@@ -53,3 +54,5 @@ class Semester(Base):
     course: Mapped[Course] = relationship(back_populates="semesters")
     subjects: Mapped[list[Subject]] = relationship(back_populates="semester", cascade="all, delete-orphan")
     batches: Mapped[list[Batch]] = relationship(back_populates="semester", cascade="all, delete-orphan")
+    students: Mapped[list[Student]] = relationship(back_populates="semester")
+    attendance_sessions: Mapped[list["AttendanceSession"]] = relationship(back_populates="semester")

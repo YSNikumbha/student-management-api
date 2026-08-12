@@ -421,20 +421,7 @@ const ReportsApp = (() => {
       const baseEndpoint = EXPORT_ENDPOINTS[currentReportType];
       const url = `${baseEndpoint}/${format}${queryString}`;
 
-      const response = await AdminApp.downloadAuthenticatedFile(url);
-      const blob = await response.blob();
-      const contentDisposition = response.headers.get("content-disposition") || "";
-      const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-      const filename = filenameMatch ? filenameMatch[1] : `report_${Date.now()}.${format}`;
-
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(objectUrl);
+      await AdminApp.downloadAuthenticatedFile(url, `report_${Date.now()}.${format}`);
     } catch (error) {
       AdminApp.showAlert("#reports-alert", error.message || "Failed to export report", "danger");
     }

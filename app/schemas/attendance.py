@@ -82,7 +82,7 @@ class AttendanceUpdate(BaseModel):
 class AttendanceResponse(BaseModel):
     id: int
     student_id: int
-    date: date
+    date: date | None
     status: AttendanceStatus
     remarks: str | None
     marked_by: int
@@ -120,4 +120,10 @@ class StudentAttendanceSummary(BaseModel):
     present_days: int
     absent_days: int
     late_days: int
+    excused_days: int = 0
     attendance_percentage: float
+    total_sessions: int = 0
+    present: int = 0
+    absent: int = 0
+    late: int = 0
+    excused: int = 0

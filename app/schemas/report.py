@@ -35,7 +35,7 @@ class AttendanceReportItem(BaseModel):
 
 
 class DetailedAttendanceItem(BaseModel):
-    date: date
+    date: date | None
     student_code: str
     student_name: str
     course_name: str | None

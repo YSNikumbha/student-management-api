@@ -1,328 +1,530 @@
-let attendanceCourses = [];
-let attendanceRows = [];
-let attendanceHistoryPageData = null;
-let attendanceHistoryState = {
-  page: 1,
-  pageSize: 10,
-};
-
 document.addEventListener("DOMContentLoaded", () => {
-  document.querySelector("#attendance-date").value = getTodayDateString();
-  document.querySelector("#load-attendance").addEventListener("click", loadAttendance);
-  document.querySelector("#mark-all-present").addEventListener("click", markAllPresent);
-  document.querySelector("#clear-attendance").addEventListener("click", clearAttendance);
-  document.querySelector("#save-attendance").addEventListener("click", saveAttendance);
-  document.querySelector("#load-attendance-history").addEventListener("click", () => {
-    attendanceHistoryState.page = 1;
-    loadAttendanceHistory();
-  });
-  document.querySelector("#history-course").addEventListener("change", resetAndLoadAttendanceHistory);
-  document.querySelector("#history-status").addEventListener("change", resetAndLoadAttendanceHistory);
-  document.querySelector("#history-start-date").addEventListener("change", resetAndLoadAttendanceHistory);
-  document.querySelector("#history-end-date").addEventListener("change", resetAndLoadAttendanceHistory);
-  document.querySelector("#history-page-size").addEventListener("change", () => {
-    attendanceHistoryState.pageSize = Number(document.querySelector("#history-page-size").value);
-    resetAndLoadAttendanceHistory();
-  });
-
-  loadCourses();
-  loadAttendanceHistory();
+  initAttendancePage();
 });
 
-async function loadCourses() {
-  const courseSelect = document.querySelector("#attendance-course");
+let currentSessionId = null;
+
+async function initAttendancePage() {
+  await Promise.all([
+    loadStudentsForSummary(),
+    loadSessionFormOptions(),
+  ]);
+  loadSessions();
+  loadHistory();
+
+  document.getElementById("session-form")?.addEventListener("submit", handleCreateSession);
+  document.getElementById("session-year")?.addEventListener("change", handleAcademicFilterChange);
+  document.getElementById("session-course")?.addEventListener("change", handleAcademicFilterChange);
+  document.getElementById("session-semester")?.addEventListener("change", handleSemesterChange);
+  document.getElementById("create-session-btn")?.addEventListener("click", () => {
+    document.getElementById("mark-tab").click();
+  });
+  document.getElementById("mark-all-present")?.addEventListener("click", markAllPresent);
+  document.getElementById("clear-all")?.addEventListener("click", clearAllAttendance);
+  document.getElementById("save-attendance")?.addEventListener("click", saveAttendance);
+  document.getElementById("summary-student")?.addEventListener("change", loadStudentSummary);
+}
+
+// ============================================
+// CREATE SESSION
+// ============================================
+
+async function handleCreateSession(e) {
+  e.preventDefault();
+
+  const date = document.getElementById("session-date").value;
+  const course_id = parseInt(document.getElementById("session-course").value);
+  const batch_id = parseInt(document.getElementById("session-batch").value);
+  const semester_id = parseInt(document.getElementById("session-semester").value);
+  const subject_id = parseInt(document.getElementById("session-subject").value);
+  const session_name = document.getElementById("session-name").value.trim() || null;
+  const startValue = document.getElementById("session-start").value;
+  const endValue = document.getElementById("session-end").value;
+  const start_time = startValue ? `${date}T${startValue}:00` : null;
+  const end_time = endValue ? `${date}T${endValue}:00` : null;
+
+  if (!date || !course_id || !batch_id || !semester_id || !subject_id) {
+    AdminApp.showAlert("#attendance-alert", "Please fill all required fields", "warning");
+    return;
+  }
+
+  const payload = {
+    date,
+    course_id,
+    batch_id,
+    semester_id,
+    subject_id,
+    session_name,
+    start_time,
+    end_time,
+  };
 
   try {
-    const response = await AdminApp.authFetch("/courses?page_size=100&sort_by=name&sort_order=asc");
-    attendanceCourses = AdminApp.getItems(response);
-    if (attendanceCourses.length === 0) {
-      courseSelect.innerHTML = '<option value="">No courses found</option>';
-      renderHistoryCourseOptions();
+    const session = await AdminApp.authFetch("/attendance/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: payload,
+    });
+
+    currentSessionId = session.id;
+    document.getElementById("mark-attendance-section").classList.remove("d-none");
+    await loadSessionStudents(currentSessionId);
+    AdminApp.showToast("success", "Session created successfully");
+    document.getElementById("session-form").reset();
+    await loadSessionFormOptions();
+  } catch (error) {
+    AdminApp.showAlert("#attendance-alert", error.message || "Failed to create session", "danger");
+  }
+}
+
+async function loadSessionFormOptions() {
+  setDateDefault();
+  await Promise.all([loadAcademicYears(), loadCourses()]);
+  await handleAcademicFilterChange();
+}
+
+async function loadAcademicYears() {
+  const select = document.getElementById("session-year");
+  if (!select) return;
+
+  try {
+    const data = await AdminApp.authFetch("/academic-years?page_size=100");
+    const years = AdminApp.getItems(data);
+    setSelectOptions(
+      select,
+      years,
+      "Select academic year",
+      (year) => year.name,
+    );
+  } catch (error) {
+    setSelectError(select, error.message || "Failed to load academic years");
+  }
+}
+
+async function loadCourses() {
+  const select = document.getElementById("session-course");
+  if (!select) return;
+
+  try {
+    const data = await AdminApp.authFetch("/courses?page_size=100");
+    const courses = AdminApp.getItems(data);
+    setSelectOptions(
+      select,
+      courses,
+      "Select course",
+      (course) => `${course.code} - ${course.name}`,
+    );
+  } catch (error) {
+    setSelectError(select, error.message || "Failed to load courses");
+  }
+}
+
+async function handleAcademicFilterChange() {
+  await Promise.all([loadSemesters(), loadBatches()]);
+  await loadSubjects();
+}
+
+async function handleSemesterChange() {
+  await Promise.all([loadBatches(), loadSubjects()]);
+}
+
+async function loadSemesters() {
+  const select = document.getElementById("session-semester");
+  if (!select) return;
+
+  const yearId = document.getElementById("session-year")?.value;
+  const courseId = document.getElementById("session-course")?.value;
+  if (!yearId || !courseId) {
+    setSelectOptions(select, [], "Select semester");
+    return;
+  }
+
+  try {
+    const query = AdminApp.buildQueryString({
+      academic_year_id: yearId,
+      course_id: courseId,
+      page_size: 100,
+    });
+    const data = await AdminApp.authFetch(`/semesters${query}`);
+    setSelectOptions(
+      select,
+      AdminApp.getItems(data),
+      "Select semester",
+      (semester) => semester.name,
+    );
+  } catch (error) {
+    setSelectError(select, error.message || "Failed to load semesters");
+  }
+}
+
+async function loadBatches() {
+  const select = document.getElementById("session-batch");
+  if (!select) return;
+
+  const yearId = document.getElementById("session-year")?.value;
+  const courseId = document.getElementById("session-course")?.value;
+  const semesterId = document.getElementById("session-semester")?.value;
+  if (!yearId || !courseId) {
+    setSelectOptions(select, [], "Select batch");
+    return;
+  }
+
+  try {
+    const query = AdminApp.buildQueryString({
+      academic_year_id: yearId,
+      course_id: courseId,
+      semester_id: semesterId || undefined,
+      page_size: 100,
+    });
+    const data = await AdminApp.authFetch(`/batches${query}`);
+    setSelectOptions(
+      select,
+      AdminApp.getItems(data),
+      "Select batch",
+      (batch) => batch.name,
+    );
+  } catch (error) {
+    setSelectError(select, error.message || "Failed to load batches");
+  }
+}
+
+async function loadSubjects() {
+  const select = document.getElementById("session-subject");
+  if (!select) return;
+
+  const courseId = document.getElementById("session-course")?.value;
+  const semesterId = document.getElementById("session-semester")?.value;
+  if (!courseId || !semesterId) {
+    setSelectOptions(select, [], "Select subject");
+    return;
+  }
+
+  try {
+    const query = AdminApp.buildQueryString({
+      course_id: courseId,
+      semester_id: semesterId,
+      page_size: 100,
+    });
+    const data = await AdminApp.authFetch(`/subjects${query}`);
+    setSelectOptions(
+      select,
+      AdminApp.getItems(data),
+      "Select subject",
+      (subject) => `${subject.code} - ${subject.name}`,
+    );
+  } catch (error) {
+    setSelectError(select, error.message || "Failed to load subjects");
+  }
+}
+
+function setDateDefault() {
+  const input = document.getElementById("session-date");
+  if (input && !input.value) {
+    input.value = new Date().toISOString().slice(0, 10);
+  }
+}
+
+function setSelectOptions(select, items, placeholder, labelFactory = (item) => item.name) {
+  select.innerHTML = `<option value="">${AdminApp.escapeHtml(placeholder)}</option>` +
+    items.map((item) => (
+      `<option value="${item.id}">${AdminApp.escapeHtml(labelFactory(item))}</option>`
+    )).join("");
+}
+
+function setSelectError(select, message) {
+  select.innerHTML = `<option value="">${AdminApp.escapeHtml(message)}</option>`;
+}
+
+// ============================================
+// MARK ATTENDANCE
+// ============================================
+
+async function loadSessionStudents(sessionId) {
+  const tbody = document.querySelector("#attendance-table-body");
+  tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Loading...</td></tr>';
+
+  try {
+    const data = await AdminApp.authFetch(`/attendance/sessions/${sessionId}/students`);
+    const students = data.students;
+
+    if (!students.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No students in this batch</td></tr>';
       return;
     }
 
-    courseSelect.innerHTML = `
-      <option value="">Select course</option>
-      ${attendanceCourses.map((course) => `
-        <option value="${course.id}">
-          ${AdminApp.escapeHtml(course.name)} (${AdminApp.escapeHtml(course.code)})
-        </option>
-      `).join("")}
-    `;
-    renderHistoryCourseOptions();
+    tbody.innerHTML = students.map((student, index) => `
+      <tr data-student-id="${student.student_id}">
+        <td>${AdminApp.escapeHtml(student.student_code)}</td>
+        <td>${AdminApp.escapeHtml(student.student_name)}</td>
+        <td>
+          <input type="radio" name="status-${index}" value="present" ${student.status === 'present' ? 'checked' : ''}>
+        </td>
+        <td>
+          <input type="radio" name="status-${index}" value="absent" ${student.status === 'absent' ? 'checked' : ''}>
+        </td>
+        <td>
+          <input type="radio" name="status-${index}" value="late" ${student.status === 'late' ? 'checked' : ''}>
+        </td>
+        <td>
+          <input type="radio" name="status-${index}" value="excused" ${student.status === 'excused' ? 'checked' : ''}>
+        </td>
+        <td>
+          <input type="text" class="form-control form-control-sm remarks-input" value="${AdminApp.escapeHtml(student.remarks || '')}" placeholder="Optional remarks">
+        </td>
+      </tr>
+    `).join("");
   } catch (error) {
-    AdminApp.showAlert("#attendance-alert", error.message, "danger");
-    courseSelect.innerHTML = '<option value="">Unable to load courses</option>';
-    renderHistoryCourseOptions();
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Failed to load students</td></tr>';
+    AdminApp.showAlert("#attendance-alert", error.message || "Failed to load students", "danger");
   }
-}
-
-function renderHistoryCourseOptions() {
-  const historyCourseSelect = document.querySelector("#history-course");
-  historyCourseSelect.innerHTML = `
-    <option value="">All courses</option>
-    ${attendanceCourses.map((course) => `
-      <option value="${course.id}">
-        ${AdminApp.escapeHtml(course.name)} (${AdminApp.escapeHtml(course.code)})
-      </option>
-    `).join("")}
-  `;
-}
-
-async function loadAttendance() {
-  const courseId = document.querySelector("#attendance-course").value;
-  const attendanceDate = document.querySelector("#attendance-date").value;
-  const loadButton = document.querySelector("#load-attendance");
-
-  AdminApp.clearAlert("#attendance-alert");
-
-  if (!courseId) {
-    AdminApp.showAlert("#attendance-alert", "Please select a course.", "warning");
-    return;
-  }
-
-  if (!attendanceDate) {
-    AdminApp.showAlert("#attendance-alert", "Please select an attendance date.", "warning");
-    return;
-  }
-
-  setAttendanceTableLoading();
-  setAttendanceActions(false);
-  AdminApp.setButtonLoading(loadButton, true, "Loading...");
-
-  try {
-    const response = await AdminApp.authFetch(
-      `/attendance/course/${courseId}/date/${attendanceDate}`,
-    );
-    attendanceRows = response.students;
-    renderAttendanceTable(attendanceRows);
-    updateAttendanceContext(courseId, attendanceDate);
-    setAttendanceActions(attendanceRows.length > 0);
-  } catch (error) {
-    AdminApp.showAlert("#attendance-alert", error.message, "danger");
-    renderAttendanceEmpty("Unable to load attendance.");
-  } finally {
-    AdminApp.setButtonLoading(loadButton, false);
-  }
-}
-
-function renderAttendanceTable(rows) {
-  const tableBody = document.querySelector("#attendance-table-body");
-
-  if (rows.length === 0) {
-    renderAttendanceEmpty("No students are assigned to this course.");
-    return;
-  }
-
-  tableBody.innerHTML = rows.map((row) => `
-    <tr data-student-id="${row.student_id}">
-      <td>${AdminApp.escapeHtml(row.student_code)}</td>
-      <td>${AdminApp.escapeHtml(row.name)}</td>
-      <td>
-        <select class="form-select attendance-status" aria-label="Attendance status for ${AdminApp.escapeHtml(row.name)}">
-          <option value="">Select status</option>
-          <option value="present" ${row.status === "present" ? "selected" : ""}>Present</option>
-          <option value="absent" ${row.status === "absent" ? "selected" : ""}>Absent</option>
-          <option value="late" ${row.status === "late" ? "selected" : ""}>Late</option>
-        </select>
-      </td>
-      <td>
-        <input class="form-control attendance-remarks" type="text" maxlength="500" value="${AdminApp.escapeHtml(row.remarks || "")}" placeholder="Optional remarks">
-      </td>
-      <td>
-        ${row.attendance_id ? '<span class="status-badge status-active">Saved</span>' : '<span class="status-badge status-pending">New</span>'}
-      </td>
-    </tr>
-  `).join("");
-}
-
-function renderAttendanceEmpty(message) {
-  document.querySelector("#attendance-table-body").innerHTML = `
-    <tr>
-      <td colspan="5" class="text-center text-muted py-4">${AdminApp.escapeHtml(message)}</td>
-    </tr>
-  `;
-}
-
-function setAttendanceTableLoading() {
-  document.querySelector("#attendance-table-body").innerHTML = `
-    <tr>
-      <td colspan="5" class="text-center text-muted py-4">Loading...</td>
-    </tr>
-  `;
-}
-
-function updateAttendanceContext(courseId, attendanceDate) {
-  const course = attendanceCourses.find((item) => item.id === Number(courseId));
-  const courseName = course ? `${course.name} (${course.code})` : "Selected course";
-  document.querySelector("#attendance-context").textContent = `${courseName} on ${attendanceDate}`;
-}
-
-function setAttendanceActions(enabled) {
-  document.querySelector("#mark-all-present").disabled = !enabled;
-  document.querySelector("#clear-attendance").disabled = !enabled;
-  document.querySelector("#save-attendance").disabled = !enabled;
 }
 
 function markAllPresent() {
-  document.querySelectorAll(".attendance-status").forEach((select) => {
-    select.value = "present";
+  document.querySelectorAll("#attendance-table-body tr").forEach((row) => {
+    const radio = row.querySelector('input[value="present"]');
+    if (radio) radio.checked = true;
   });
 }
 
-function clearAttendance() {
-  document.querySelectorAll(".attendance-status").forEach((select) => {
-    select.value = "";
+function clearAllAttendance() {
+  document.querySelectorAll("#attendance-table-body tr input[type='radio']").forEach((radio) => {
+    radio.checked = false;
   });
-  document.querySelectorAll(".attendance-remarks").forEach((input) => {
+  document.querySelectorAll("#attendance-table-body tr .remarks-input").forEach((input) => {
     input.value = "";
   });
 }
 
-function resetAndLoadAttendanceHistory() {
-  attendanceHistoryState.page = 1;
-  loadAttendanceHistory();
-}
-
-async function loadAttendanceHistory() {
-  const tableBody = document.querySelector("#attendance-history-body");
-  const loadButton = document.querySelector("#load-attendance-history");
-  tableBody.innerHTML = `
-    <tr>
-      <td colspan="5" class="text-center text-muted py-4">Loading...</td>
-    </tr>
-  `;
-
-  AdminApp.setButtonLoading(loadButton, true, "Loading...");
-
-  try {
-    const query = AdminApp.buildQueryString({
-      start_date: document.querySelector("#history-start-date").value,
-      end_date: document.querySelector("#history-end-date").value,
-      course_id: document.querySelector("#history-course").value,
-      status: document.querySelector("#history-status").value,
-      page: attendanceHistoryState.page,
-      page_size: attendanceHistoryState.pageSize,
-    });
-    const response = await AdminApp.authFetch(`/attendance${query}`);
-    const records = AdminApp.getItems(response);
-    attendanceHistoryPageData = response;
-    renderAttendanceHistory(records);
-    renderAttendanceHistoryPagination();
-  } catch (error) {
-    AdminApp.showAlert("#attendance-alert", error.message, "danger");
-    tableBody.innerHTML = `
-      <tr>
-        <td colspan="5" class="text-center text-muted py-4">Unable to load attendance history.</td>
-      </tr>
-    `;
-  } finally {
-    AdminApp.setButtonLoading(loadButton, false);
-  }
-}
-
-function renderAttendanceHistory(records) {
-  const tableBody = document.querySelector("#attendance-history-body");
-
-  if (records.length === 0) {
-    tableBody.innerHTML = `
-      <tr>
-        <td colspan="5" class="text-center text-muted py-4">No attendance records found for this period.</td>
-      </tr>
-    `;
+async function saveAttendance() {
+  if (!currentSessionId) {
+    AdminApp.showAlert("#attendance-alert", "No session selected", "warning");
     return;
   }
 
-  tableBody.innerHTML = records.map((record) => `
-    <tr>
-      <td>${AdminApp.escapeHtml(record.date)}</td>
-      <td>${AdminApp.escapeHtml(record.student_id)}</td>
-      <td>${AdminApp.attendanceBadge(record.status)}</td>
-      <td>${AdminApp.escapeHtml(record.remarks || "")}</td>
-      <td>${AdminApp.escapeHtml(AdminApp.formatDate(record.updated_at))}</td>
-    </tr>
-  `).join("");
-}
-
-function renderAttendanceHistoryPagination() {
-  AdminApp.renderPagination("#attendance-history-pagination", attendanceHistoryPageData, (page) => {
-    attendanceHistoryState.page = page;
-    loadAttendanceHistory();
-  });
-}
-
-function buildBulkPayload() {
-  const attendanceDate = document.querySelector("#attendance-date").value;
   const records = [];
-  const missingStudents = [];
+  document.querySelectorAll("#attendance-table-body tr").forEach((row) => {
+    const studentId = row.dataset.studentId;
+    const status = row.querySelector('input[type="radio"]:checked')?.value;
+    const remarks = row.querySelector(".remarks-input")?.value.trim() || null;
 
-  document.querySelectorAll("#attendance-table-body tr[data-student-id]").forEach((row) => {
-    const studentId = Number(row.dataset.studentId);
-    const status = row.querySelector(".attendance-status").value;
-    const remarks = row.querySelector(".attendance-remarks").value.trim() || null;
+    if (status) {
+      records.push({ student_id: parseInt(studentId), status, remarks });
+    }
+  });
 
-    if (!status) {
-      missingStudents.push(row.children[1].textContent.trim());
+  if (!records.length) {
+    AdminApp.showAlert("#attendance-alert", "No attendance records to save", "warning");
+    return;
+  }
+
+  try {
+    await AdminApp.authFetch(`/attendance/sessions/${currentSessionId}/records/bulk`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: { records },
+    });
+
+    AdminApp.showToast("success", "Attendance saved successfully");
+    loadSessions();
+    loadHistory();
+  } catch (error) {
+    AdminApp.showAlert("#attendance-alert", error.message || "Failed to save attendance", "danger");
+  }
+}
+
+// ============================================
+// SESSIONS
+// ============================================
+
+async function loadSessions() {
+  const loadingEl = document.getElementById("sessions-loading");
+  const tbody = document.querySelector("#sessions-table-body");
+
+  try {
+    loadingEl?.classList.remove("d-none");
+    const data = await AdminApp.authFetch("/attendance/sessions?page_size=100");
+    const sessions = data.items || [];
+
+    if (!sessions.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No sessions found.</td></tr>';
       return;
     }
 
-    records.push({
-      student_id: studentId,
-      status,
-      remarks,
-    });
-  });
-
-  if (missingStudents.length > 0) {
-    throw new Error("Please mark attendance status for every student.");
+    tbody.innerHTML = sessions.map((session) => `
+      <tr>
+        <td>${AdminApp.formatDate(session.date)}</td>
+        <td>${AdminApp.escapeHtml(session.course_name || "")}</td>
+        <td>${AdminApp.escapeHtml(session.batch_name || "")}</td>
+        <td>${AdminApp.escapeHtml(session.subject_code || "")}</td>
+        <td>${AdminApp.escapeHtml(session.session_name || "-")}</td>
+        <td>${session.student_count}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-primary" onclick="viewSession(${session.id})">
+            <i class="bi bi-eye"></i> View
+          </button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteSession(${session.id})">
+            <i class="bi bi-trash"></i> Delete
+          </button>
+        </td>
+      </tr>
+    `).join("");
+  } catch (error) {
+    AdminApp.showAlert("#attendance-alert", error.message || "Failed to load sessions", "danger");
+  } finally {
+    loadingEl?.classList.add("d-none");
   }
-
-  if (records.length === 0) {
-    throw new Error("No students are available to save.");
-  }
-
-  return {
-    date: attendanceDate,
-    records,
-  };
 }
 
-async function saveAttendance() {
-  const saveButton = document.querySelector("#save-attendance");
+async function viewSession(sessionId) {
+  currentSessionId = sessionId;
+  document.getElementById("mark-tab").click();
+  document.getElementById("mark-attendance-section").classList.remove("d-none");
+  await loadSessionStudents(sessionId);
+}
 
-  AdminApp.clearAlert("#attendance-alert");
+async function deleteSession(sessionId) {
+  const confirmed = await AdminApp.confirmAction({
+    title: "Delete Session",
+    message: "Are you sure you want to delete this session? All attendance records will be deleted.",
+    confirmLabel: "Delete",
+    danger: true,
+  });
 
-  let payload;
+  if (!confirmed) return;
+
   try {
-    payload = buildBulkPayload();
+    await AdminApp.authFetch(`/attendance/sessions/${sessionId}`, { method: "DELETE" });
+    loadSessions();
+    AdminApp.showToast("success", "Session deleted successfully");
   } catch (error) {
-    AdminApp.showAlert("#attendance-alert", error.message, "warning");
+    AdminApp.showAlert("#attendance-alert", error.message || "Failed to delete session", "danger");
+  }
+}
+
+// ============================================
+// HISTORY
+// ============================================
+
+async function loadHistory() {
+  const tbody = document.querySelector("#history-table-body");
+  tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Loading...</td></tr>';
+
+  try {
+    const data = await AdminApp.authFetch("/attendance/sessions?page_size=100");
+    const sessions = data.items || [];
+
+    const historyRows = [];
+    for (const session of sessions) {
+      const studentsData = await AdminApp.authFetch(`/attendance/sessions/${session.id}/students`);
+
+      for (const student of studentsData.students) {
+        if (student.status) {
+          historyRows.push({
+            date: session.date,
+            student_name: student.student_name,
+            course_name: session.course_name,
+            subject_code: session.subject_code,
+            status: student.status,
+            remarks: student.remarks,
+          });
+        }
+      }
+    }
+
+    if (!historyRows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No attendance records found.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = historyRows.map((record) => `
+      <tr>
+        <td>${AdminApp.formatDate(record.date)}</td>
+        <td>${AdminApp.escapeHtml(record.student_name)}</td>
+        <td>${AdminApp.escapeHtml(record.course_name || "")}</td>
+        <td>${AdminApp.escapeHtml(record.subject_code || "")}</td>
+        <td>${AdminApp.attendanceBadge(record.status)}</td>
+        <td>${AdminApp.escapeHtml(record.remarks || "-")}</td>
+      </tr>
+    `).join("");
+  } catch (error) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Failed to load history</td></tr>';
+    AdminApp.showAlert("#attendance-alert", error.message || "Failed to load history", "danger");
+  }
+}
+
+// ============================================
+// STUDENT SUMMARY
+// ============================================
+
+async function loadStudentsForSummary() {
+  const select = document.getElementById("summary-student");
+  if (!select) return;
+
+  try {
+    const data = await AdminApp.authFetch("/students?page_size=100");
+    const students = data.items || [];
+
+    select.innerHTML = '<option value="">Select student</option>' +
+      students.map((s) => `<option value="${s.id}">${AdminApp.escapeHtml(s.student_code)} - ${AdminApp.escapeHtml(s.first_name)} ${AdminApp.escapeHtml(s.last_name)}</option>`).join("");
+  } catch (error) {
+    console.error("Failed to load students", error);
+  }
+}
+
+async function loadStudentSummary() {
+  const studentId = document.getElementById("summary-student").value;
+  const summaryContent = document.getElementById("summary-content");
+
+  if (!studentId) {
+    summaryContent.classList.add("d-none");
     return;
   }
 
-  AdminApp.setButtonLoading(saveButton, true);
-
   try {
-    const response = await AdminApp.authFetch("/attendance/bulk", {
-      method: "POST",
-      body: payload,
-    });
+    const [summaryResponse, subjectResponse] = await Promise.all([
+      AdminApp.authFetch(`/attendance/student/${studentId}/summary`),
+      AdminApp.authFetch(`/attendance/sessions/student/${studentId}/subject-summary`),
+    ]);
 
-    AdminApp.showAlert(
-      "#attendance-alert",
-      `Attendance saved. Created: ${response.created}, Updated: ${response.updated}.`,
-      "success",
-    );
-    await loadAttendance();
+    const summary = summaryResponse;
+    const subjectData = subjectResponse;
+
+    document.getElementById("summary-total").textContent = summary.total_sessions ?? summary.total_marked_days ?? 0;
+    document.getElementById("summary-present").textContent = summary.present ?? summary.present_days ?? 0;
+    document.getElementById("summary-absent").textContent = summary.absent ?? summary.absent_days ?? 0;
+    document.getElementById("summary-percentage").textContent = `${summary.attendance_percentage || 0}%`;
+
+    const percentage = summary.attendance_percentage || 0;
+    const percentageElement = document.getElementById("summary-percentage");
+    if (percentage < 75) {
+      percentageElement.classList.add("text-danger");
+      percentageElement.classList.remove("text-success");
+    } else {
+      percentageElement.classList.add("text-success");
+      percentageElement.classList.remove("text-danger");
+    }
+
+    const subjectTbody = document.querySelector("#subject-summary-body");
+    const subjects = subjectData.subjects || [];
+
+    if (!subjects.length) {
+      subjectTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No subject-wise data available</td></tr>';
+    } else {
+      subjectTbody.innerHTML = subjects.map((subject) => {
+        const percentageClass = subject.attendance_percentage < 75 ? "text-danger fw-bold" : "";
+        return `
+          <tr>
+            <td>${AdminApp.escapeHtml(subject.subject_code)} - ${AdminApp.escapeHtml(subject.subject_name)}</td>
+            <td>${subject.total_sessions}</td>
+            <td>${subject.present}</td>
+            <td class="${percentageClass}">${subject.attendance_percentage}%</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    summaryContent.classList.remove("d-none");
   } catch (error) {
-    AdminApp.showAlert("#attendance-alert", error.message, "danger");
-  } finally {
-    AdminApp.setButtonLoading(saveButton, false);
+    AdminApp.showAlert("#attendance-alert", error.message || "Failed to load summary", "danger");
   }
-}
-
-function getTodayDateString() {
-  const now = new Date();
-  const timezoneOffset = now.getTimezoneOffset() * 60000;
-  return new Date(now.getTime() - timezoneOffset).toISOString().slice(0, 10);
 }

@@ -39,3 +39,4 @@ class Course(Base):
     semesters: Mapped[list[Semester]] = relationship(back_populates="course", cascade="all, delete-orphan")
     subjects: Mapped[list[Subject]] = relationship(back_populates="course", cascade="all, delete-orphan")
     batches: Mapped[list[Batch]] = relationship(back_populates="course", cascade="all, delete-orphan")
+    attendance_sessions: Mapped[list["AttendanceSession"]] = relationship(back_populates="course")

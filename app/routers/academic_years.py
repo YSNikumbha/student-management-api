@@ -58,12 +58,13 @@ def get_academic_years(
     page_size: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db),
 ) -> dict:
+    skip = (page - 1) * page_size
     years, total_items = academic_year_service.get_academic_years_paginated(
         db,
         search=search,
         is_active=is_active,
-        page=page,
-        page_size=page_size,
+        skip=skip,
+        limit=page_size,
     )
     return build_paginated_response(years, page, page_size, total_items)
 
@@ -114,7 +115,7 @@ def update_academic_year(
             )
 
     try:
-        return academic_year_service.update_academic_year(db, year, year_data)
+        return academic_year_service.update_academic_year(db, year_id, year_data)
     except IntegrityError as error:
         db.rollback()
         raise HTTPException(
@@ -145,5 +146,5 @@ def delete_academic_year(
             detail="Cannot delete academic year because semesters are assigned to it",
         )
 
-    academic_year_service.delete_academic_year(db, year)
+    academic_year_service.delete_academic_year(db, year_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

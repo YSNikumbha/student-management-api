@@ -9,7 +9,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base
 
 if TYPE_CHECKING:
+    from app.models.batch import Batch
     from app.models.semester import Semester
+    from app.models.student import Student
 
 
 class AcademicYear(Base):
@@ -33,3 +35,5 @@ class AcademicYear(Base):
     )
 
     semesters: Mapped[list[Semester]] = relationship(back_populates="academic_year", cascade="all, delete-orphan")
+    batches: Mapped[list[Batch]] = relationship(back_populates="academic_year", cascade="all, delete-orphan")
+    students: Mapped[list[Student]] = relationship(back_populates="academic_year")

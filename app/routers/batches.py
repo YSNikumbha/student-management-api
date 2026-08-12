@@ -59,13 +59,14 @@ def get_batches(
     page_size: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db),
 ) -> dict:
+    skip = (page - 1) * page_size
     batches, total_items = batch_service.get_batches_paginated(
         db,
         course_id=course_id,
         academic_year_id=academic_year_id,
         semester_id=semester_id,
-        page=page,
-        page_size=page_size,
+        skip=skip,
+        limit=page_size,
     )
     return build_paginated_response(batches, page, page_size, total_items)
 
@@ -116,7 +117,7 @@ def update_batch(
             )
 
     try:
-        return batch_service.update_batch(db, batch, batch_data)
+        return batch_service.update_batch(db, batch_id, batch_data)
     except IntegrityError as error:
         db.rollback()
         raise HTTPException(
@@ -147,5 +148,5 @@ def delete_batch(
             detail="Cannot delete batch because students are assigned to it",
         )
 
-    batch_service.delete_batch(db, batch)
+    batch_service.delete_batch(db, batch_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

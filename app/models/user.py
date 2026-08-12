@@ -9,6 +9,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base
 
 if TYPE_CHECKING:
+    from app.models.attendance import Attendance
+    from app.models.attendance_session import AttendanceSession
     from app.models.payment import Payment
     from app.models.student_fee import StudentFee
 
@@ -41,3 +43,5 @@ class User(Base):
         back_populates="recorder",
         passive_deletes=True,
     )
+    attendances_marked: Mapped[list[Attendance]] = relationship(back_populates="marked_by_user")
+    attendance_sessions: Mapped[list[AttendanceSession]] = relationship(back_populates="created_by_user")

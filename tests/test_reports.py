@@ -14,10 +14,20 @@ from app.models.student_fee import StudentFee
 from app.models.user import User
 from app.schemas.student import StudentCreate
 from app.schemas.user import UserCreate
-from app.services import course_service, student_service, user_service
+from app.services import academic_year_service, batch_service, course_service, semester_service, student_service, subject_service, user_service, attendance_session_service
 
 
 def create_test_data(db: Session):
+    from app.models.academic_year import AcademicYear
+    from app.models.semester import Semester
+    from app.models.batch import Batch
+    from app.models.attendance_session import AttendanceSession
+    from app.schemas.academic_year import AcademicYearCreate
+    from app.schemas.semester import SemesterCreate
+    from app.schemas.batch import BatchCreate
+    from app.schemas.subject import SubjectCreate
+    from app.schemas.attendance_session import AttendanceSessionCreate
+    
     course = course_service.create_course(db, course_service.CourseCreate(
         code="CS101",
         name="Computer Science",
@@ -77,15 +87,73 @@ def create_test_data(db: Session):
     )
     db.add(payment)
 
+    # Create academic structure for attendance sessions
+    academic_year = academic_year_service.create_academic_year(
+        db, 
+        AcademicYearCreate(
+            name="2025-26",
+            start_date=date(2025, 6, 1),
+            end_date=date(2026, 5, 31),
+        )
+    )
+    
+    semester = semester_service.create_semester(
+        db,
+        SemesterCreate(
+            academic_year_id=academic_year.id,
+            course_id=course.id,
+            number=1,
+            name="Semester 1",
+        ),
+    )
+    
+    batch = batch_service.create_batch(
+        db,
+        BatchCreate(
+            name="CS-2025-A",
+            course_id=course.id,
+            academic_year_id=academic_year.id,
+            capacity=30,
+        ),
+    )
+    
+    # Create subject
+    subject = subject_service.create_subject(
+        db,
+        SubjectCreate(
+            course_id=course.id,
+            semester_id=semester.id,
+            code="CS101",
+            name="Introduction to Programming",
+        ),
+    )
+    db.commit()
+    
+    # Create attendance session
+    session = attendance_session_service.create_attendance_session(
+        db,
+        AttendanceSessionCreate(
+            course_id=course.id,
+            batch_id=batch.id,
+            semester_id=semester.id,
+            subject_id=subject.id,
+            date=datetime.now(),
+            session_name="Test Session",
+        ),
+        created_by=admin.id,
+    )
+    db.commit()
+    
+    # Create attendance records linked to session
     attendance1 = Attendance(
+        attendance_session_id=session.id,
         student_id=student1.id,
-        date=date.today(),
         status="present",
         marked_by=admin.id,
     )
     attendance2 = Attendance(
+        attendance_session_id=session.id,
         student_id=student2.id,
-        date=date.today(),
         status="absent",
         marked_by=admin.id,
     )

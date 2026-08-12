@@ -1,3 +1,4 @@
+import csv
 from datetime import date
 from io import BytesIO, StringIO
 from typing import Literal
@@ -154,59 +155,153 @@ def get_course_report(
 
 
 def _generate_student_csv(items: list[dict]) -> str:
-    buffer = StringIO()
-    buffer.write("student_id,student_code,full_name,email,phone,course_id,course_name,status,date_of_birth,created_at\n")
-    for item in items:
-        buffer.write(
-            f"{item['student_id']},{item['student_code']},{item['full_name']},{item['email']},"
-            f"{item['phone'] or ''},{item['course_id'] or ''},{item['course_name'] or ''},"
-            f"{item['status']},{item['date_of_birth'] or ''},{item['created_at']}\n"
-        )
-    return buffer.getvalue()
+    return _write_csv(
+        [
+            "student_id",
+            "student_code",
+            "full_name",
+            "email",
+            "phone",
+            "course_id",
+            "course_name",
+            "status",
+            "date_of_birth",
+            "created_at",
+        ],
+        [
+            [
+                item["student_id"],
+                item["student_code"],
+                item["full_name"],
+                item["email"],
+                item["phone"] or "",
+                item["course_id"] or "",
+                item["course_name"] or "",
+                item["status"],
+                item["date_of_birth"] or "",
+                item["created_at"],
+            ]
+            for item in items
+        ],
+    )
 
 
 def _generate_attendance_csv(items: list[dict], detailed: bool = False) -> str:
-    buffer = StringIO()
     if detailed:
-        buffer.write("date,student_code,student_name,course_name,status,remarks,marked_by\n")
-        for item in items:
-            buffer.write(
-                f"{item['date']},{item['student_code']},{item['student_name']},"
-                f"{item['course_name'] or ''},{item['status']},{item['remarks'] or ''},{item['marked_by']}\n"
-            )
-    else:
-        buffer.write("student_id,student_code,student_name,course_name,total_marked_days,present_days,absent_days,late_days,attendance_percentage\n")
-        for item in items:
-            buffer.write(
-                f"{item['student_id']},{item['student_code']},{item['student_name']},"
-                f"{item['course_name'] or ''},{item['total_marked_days']},{item['present_days']},"
-                f"{item['absent_days']},{item['late_days']},{item['attendance_percentage']}\n"
-            )
-    return buffer.getvalue()
+        return _write_csv(
+            ["date", "student_code", "student_name", "course_name", "status", "remarks", "marked_by"],
+            [
+                [
+                    item["date"] or "",
+                    item["student_code"],
+                    item["student_name"],
+                    item["course_name"] or "",
+                    item["status"],
+                    item["remarks"] or "",
+                    item["marked_by"],
+                ]
+                for item in items
+            ],
+        )
+
+    return _write_csv(
+        [
+            "student_id",
+            "student_code",
+            "student_name",
+            "course_name",
+            "total_marked_days",
+            "present_days",
+            "absent_days",
+            "late_days",
+            "attendance_percentage",
+        ],
+        [
+            [
+                item["student_id"],
+                item["student_code"],
+                item["student_name"],
+                item["course_name"] or "",
+                item["total_marked_days"],
+                item["present_days"],
+                item["absent_days"],
+                item["late_days"],
+                item["attendance_percentage"],
+            ]
+            for item in items
+        ],
+    )
 
 
 def _generate_fee_csv(items: list[dict]) -> str:
-    buffer = StringIO()
-    buffer.write("student_id,student_code,student_name,course_name,title,total_amount,paid_amount,balance,due_date,status\n")
-    for item in items:
-        buffer.write(
-            f"{item['student_id']},{item['student_code']},{item['student_name']},"
-            f"{item['course_name'] or ''},{item['title']},{item['total_amount']},"
-            f"{item['paid_amount']},{item['balance']},{item['due_date']},{item['status']}\n"
-        )
-    return buffer.getvalue()
+    return _write_csv(
+        [
+            "student_id",
+            "student_code",
+            "student_name",
+            "course_name",
+            "title",
+            "total_amount",
+            "paid_amount",
+            "balance",
+            "due_date",
+            "status",
+        ],
+        [
+            [
+                item["student_id"],
+                item["student_code"],
+                item["student_name"],
+                item["course_name"] or "",
+                item["title"],
+                item["total_amount"],
+                item["paid_amount"],
+                item["balance"],
+                item["due_date"],
+                item["status"],
+            ]
+            for item in items
+        ],
+    )
 
 
 def _generate_course_csv(items: list[dict]) -> str:
-    buffer = StringIO()
-    buffer.write("course_id,course_code,course_name,is_active,student_count,active_student_count,average_attendance_percentage,total_fees_assigned,total_fees_collected,total_fees_pending\n")
-    for item in items:
-        buffer.write(
-            f"{item['course_id']},{item['course_code']},{item['course_name']},"
-            f"{item['is_active']},{item['student_count']},{item['active_student_count']},"
-            f"{item['average_attendance_percentage'] or ''},{item['total_fees_assigned']},"
-            f"{item['total_fees_collected']},{item['total_fees_pending']}\n"
-        )
+    return _write_csv(
+        [
+            "course_id",
+            "course_code",
+            "course_name",
+            "is_active",
+            "student_count",
+            "active_student_count",
+            "average_attendance_percentage",
+            "total_fees_assigned",
+            "total_fees_collected",
+            "total_fees_pending",
+        ],
+        [
+            [
+                item["course_id"],
+                item["course_code"],
+                item["course_name"],
+                item["is_active"],
+                item["student_count"],
+                item["active_student_count"],
+                item["average_attendance_percentage"] or "",
+                item["total_fees_assigned"],
+                item["total_fees_collected"],
+                item["total_fees_pending"],
+            ]
+            for item in items
+        ],
+    )
+
+
+def _write_csv(headers: list[str], rows: list[list[object]]) -> str:
+    buffer = StringIO(newline="")
+    writer = csv.writer(buffer)
+    writer.writerow(headers)
+    writer.writerows(rows)
     return buffer.getvalue()
 
 
@@ -434,7 +529,7 @@ def export_attendance_pdf(
         headers = ["Date", "Student Code", "Student Name", "Course", "Status", "Remarks", "Marked By"]
         rows = [
             [
-                item.date.isoformat(),
+                item.date.isoformat() if item.date else "",
                 item.student_code,
                 item.student_name,
                 item.course_name or "",

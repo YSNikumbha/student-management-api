@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.routers.academic_years import router as academic_years_router
 from app.routers.attendance import router as attendance_router
+from app.routers.attendance_sessions import router as attendance_sessions_router
 from app.routers.auth import router as auth_router
 from app.routers.batches import router as batches_router
 from app.routers.courses import router as courses_router
@@ -37,6 +38,7 @@ app.include_router(subjects_router)
 app.include_router(batches_router)
 app.include_router(students_router)
 app.include_router(courses_router)
+app.include_router(attendance_sessions_router)
 app.include_router(attendance_router)
 app.include_router(fees_router)
 app.include_router(payments_router)

@@ -54,3 +54,4 @@ class Batch(Base):
     academic_year: Mapped[AcademicYear] = relationship(back_populates="batches")
     semester: Mapped[Semester | None] = relationship(back_populates="batches")
     students: Mapped[list[Student]] = relationship(back_populates="batch")
+    attendance_sessions: Mapped[list["AttendanceSession"]] = relationship(back_populates="batch")

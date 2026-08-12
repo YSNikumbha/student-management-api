@@ -17,7 +17,7 @@ from app.services import academic_year_service, batch_service, semester_service,
 
 
 class TestAcademicYears:
-    def test_create_academic_year(self, db: Session, admin_token: str):
+    def test_create_academic_year(self, client, db: Session, admin_token: str):
         year_data = AcademicYearCreate(
             name="2026-27",
             start_date="2026-06-01",
@@ -25,7 +25,7 @@ class TestAcademicYears:
         )
         response = client.post(
             "/academic-years",
-            json=year_data.model_dump(),
+            json=year_data.model_dump(mode="json"),
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert response.status_code == status.HTTP_201_CREATED
@@ -33,7 +33,7 @@ class TestAcademicYears:
         assert data["name"] == "2026-27"
         assert data["is_active"] is True
 
-    def test_create_duplicate_academic_year(self, db: Session, admin_token: str):
+    def test_create_duplicate_academic_year(self, client, db: Session, admin_token: str):
         year = academic_year_service.create_academic_year(
             db, AcademicYearCreate(name="2025-26", start_date="2025-06-01", end_date="2026-05-31")
         )
@@ -46,7 +46,7 @@ class TestAcademicYears:
         )
         assert response.status_code == status.HTTP_409_CONFLICT
 
-    def test_create_invalid_date_range(self, db: Session, admin_token: str):
+    def test_create_invalid_date_range(self, client, db: Session, admin_token: str):
         response = client.post(
             "/academic-years",
             json={"name": "Invalid", "start_date": "2027-05-31", "end_date": "2026-06-01"},
@@ -54,7 +54,7 @@ class TestAcademicYears:
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
-    def test_get_academic_years(self, db: Session, admin_token: str):
+    def test_get_academic_years(self, client, db: Session, admin_token: str):
         academic_year_service.create_academic_year(
             db, AcademicYearCreate(name="2025-26", start_date="2025-06-01", end_date="2026-05-31")
         )
@@ -68,13 +68,13 @@ class TestAcademicYears:
         data = response.json()
         assert len(data["items"]) >= 1
 
-    def test_delete_academic_year_with_semesters(self, db: Session, admin_token: str):
+    def test_delete_academic_year_with_semesters(self, client, db: Session, admin_token: str, test_course: Course):
         year = academic_year_service.create_academic_year(
             db, AcademicYearCreate(name="2026-27", start_date="2026-06-01", end_date="2027-05-31")
         )
         db.commit()
 
-        course = db.query(Course).first()
+        course = test_course
         semester_service.create_semester(
             db,
             SemesterCreate(
@@ -94,11 +94,11 @@ class TestAcademicYears:
 
 
 class TestSemesters:
-    def test_create_semester(self, db: Session, admin_token: str):
+    def test_create_semester(self, client, db: Session, admin_token: str, test_course: Course):
         year = academic_year_service.create_academic_year(
             db, AcademicYearCreate(name="2026-27", start_date="2026-06-01", end_date="2027-05-31")
         )
-        course = db.query(Course).first()
+        course = test_course
         db.commit()
 
         response = client.post(
@@ -111,11 +111,11 @@ class TestSemesters:
         assert data["number"] == 1
         assert data["name"] == "Semester 1"
 
-    def test_create_duplicate_semester(self, db: Session, admin_token: str):
+    def test_create_duplicate_semester(self, client, db: Session, admin_token: str, test_course: Course):
         year = academic_year_service.create_academic_year(
             db, AcademicYearCreate(name="2026-27", start_date="2026-06-01", end_date="2027-05-31")
         )
-        course = db.query(Course).first()
+        course = test_course
         semester_service.create_semester(
             db,
             SemesterCreate(
@@ -134,11 +134,11 @@ class TestSemesters:
         )
         assert response.status_code == status.HTTP_409_CONFLICT
 
-    def test_create_semester_invalid_number(self, db: Session, admin_token: str):
+    def test_create_semester_invalid_number(self, client, db: Session, admin_token: str, test_course: Course):
         year = academic_year_service.create_academic_year(
             db, AcademicYearCreate(name="2026-27", start_date="2026-06-01", end_date="2027-05-31")
         )
-        course = db.query(Course).first()
+        course = test_course
         db.commit()
 
         response = client.post(
@@ -150,8 +150,8 @@ class TestSemesters:
 
 
 class TestSubjects:
-    def test_create_subject(self, db: Session, admin_token: str):
-        course = db.query(Course).first()
+    def test_create_subject(self, client, db: Session, admin_token: str, test_course: Course):
+        course = test_course
         year = academic_year_service.create_academic_year(
             db, AcademicYearCreate(name="2026-27", start_date="2026-06-01", end_date="2027-05-31")
         )
@@ -175,8 +175,8 @@ class TestSubjects:
         data = response.json()
         assert data["code"] == "CS101"
 
-    def test_create_subject_code_uppercase(self, db: Session, admin_token: str):
-        course = db.query(Course).first()
+    def test_create_subject_code_uppercase(self, client, db: Session, admin_token: str, test_course: Course):
+        course = test_course
         year = academic_year_service.create_academic_year(
             db, AcademicYearCreate(name="2026-27", start_date="2026-06-01", end_date="2027-05-31")
         )
@@ -200,8 +200,8 @@ class TestSubjects:
         data = response.json()
         assert data["code"] == "CS101"
 
-    def test_create_subject_short_name(self, db: Session, admin_token: str):
-        course = db.query(Course).first()
+    def test_create_subject_short_name(self, client, db: Session, admin_token: str, test_course: Course):
+        course = test_course
         year = academic_year_service.create_academic_year(
             db, AcademicYearCreate(name="2026-27", start_date="2026-06-01", end_date="2027-05-31")
         )
@@ -225,11 +225,11 @@ class TestSubjects:
 
 
 class TestBatches:
-    def test_create_batch(self, db: Session, admin_token: str):
+    def test_create_batch(self, client, db: Session, admin_token: str, test_course: Course):
         year = academic_year_service.create_academic_year(
             db, AcademicYearCreate(name="2026-27", start_date="2026-06-01", end_date="2027-05-31")
         )
-        course = db.query(Course).first()
+        course = test_course
         db.commit()
 
         response = client.post(
@@ -241,11 +241,11 @@ class TestBatches:
         data = response.json()
         assert data["name"] == "MCA-2026-A"
 
-    def test_create_batch_invalid_capacity(self, db: Session, admin_token: str):
+    def test_create_batch_invalid_capacity(self, client, db: Session, admin_token: str, test_course: Course):
         year = academic_year_service.create_academic_year(
             db, AcademicYearCreate(name="2026-27", start_date="2026-06-01", end_date="2027-05-31")
         )
-        course = db.query(Course).first()
+        course = test_course
         db.commit()
 
         response = client.post(
@@ -255,11 +255,11 @@ class TestBatches:
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
-    def test_delete_batch_with_students(self, db: Session, admin_token: str):
+    def test_delete_batch_with_students(self, client, db: Session, admin_token: str, test_course: Course):
         year = academic_year_service.create_academic_year(
             db, AcademicYearCreate(name="2026-27", start_date="2026-06-01", end_date="2027-05-31")
         )
-        course = db.query(Course).first()
+        course = test_course
         batch = batch_service.create_batch(
             db,
             BatchCreate(
@@ -289,11 +289,11 @@ class TestBatches:
 
 
 class TestStudentAcademicAssignment:
-    def test_assign_student_to_batch(self, db: Session, admin_token: str):
+    def test_assign_student_to_batch(self, client, db: Session, admin_token: str, test_course: Course):
         year = academic_year_service.create_academic_year(
             db, AcademicYearCreate(name="2026-27", start_date="2026-06-01", end_date="2027-05-31")
         )
-        course = db.query(Course).first()
+        course = test_course
         batch = batch_service.create_batch(
             db,
             BatchCreate(
@@ -322,14 +322,14 @@ class TestStudentAcademicAssignment:
 
 
 class TestRolePermissions:
-    def test_staff_can_read_academic_years(self, db: Session, staff_token: str):
+    def test_staff_can_read_academic_years(self, client, db: Session, staff_token: str):
         response = client.get(
             "/academic-years",
             headers={"Authorization": f"Bearer {staff_token}"},
         )
         assert response.status_code == status.HTTP_200_OK
 
-    def test_staff_cannot_create_academic_year(self, db: Session, staff_token: str):
+    def test_staff_cannot_create_academic_year(self, client, db: Session, staff_token: str):
         response = client.post(
             "/academic-years",
             json={"name": "2026-27", "start_date": "2026-06-01", "end_date": "2027-05-31"},
@@ -337,11 +337,11 @@ class TestRolePermissions:
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_staff_cannot_delete_semester(self, db: Session, staff_token: str):
+    def test_staff_cannot_delete_semester(self, client, db: Session, staff_token: str, test_course: Course):
         year = academic_year_service.create_academic_year(
             db, AcademicYearCreate(name="2026-27", start_date="2026-06-01", end_date="2027-05-31")
         )
-        course = db.query(Course).first()
+        course = test_course
         semester = semester_service.create_semester(
             db,
             SemesterCreate(
