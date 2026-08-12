@@ -216,7 +216,10 @@ def create_fee(
     fee_data: StudentFeeCreate,
     created_by: int,
 ) -> StudentFee:
-    fee = StudentFee(**fee_data.model_dump(), created_by=created_by)
+    fee_payload = fee_data.model_dump()
+    if not fee_payload.get("invoice_number"):
+        fee_payload["invoice_number"] = generate_invoice_number(db, fee_data.due_date.year)
+    fee = StudentFee(**fee_payload, created_by=created_by)
     db.add(fee)
     db.commit()
     db.refresh(fee)
@@ -296,6 +299,7 @@ def build_fee_response(
         id=fee.id,
         student_id=fee.student_id,
         fee_structure_id=fee.fee_structure_id,
+        invoice_number=fee.invoice_number or f"INV-{fee.due_date.year}-{fee.id:04d}",
         fee_structure_name=fee.fee_structure.name if fee.fee_structure else None,
         student_code=student_code,
         student_name=student_name,
@@ -311,6 +315,23 @@ def build_fee_response(
         created_at=fee.created_at,
         updated_at=fee.updated_at,
     )
+
+
+def generate_invoice_number(db: Session, invoice_year: int) -> str:
+    prefix = f"INV-{invoice_year}-"
+    count = db.execute(
+        select(func.count(StudentFee.id)).where(StudentFee.invoice_number.like(f"{prefix}%"))
+    ).scalar_one()
+    next_number = int(count) + 1
+
+    while True:
+        invoice_number = f"{prefix}{next_number:04d}"
+        existing = db.execute(
+            select(StudentFee.id).where(StudentFee.invoice_number == invoice_number)
+        ).first()
+        if existing is None:
+            return invoice_number
+        next_number += 1
 
 
 def get_categories_paginated(

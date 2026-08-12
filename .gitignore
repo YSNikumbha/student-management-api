@@ -1,5 +1,8 @@
 venv/
 .venv/
+node_modules/
+frontend/node_modules/
+frontend/dist/
 __pycache__/
 **pycache**/
 *.pyc
@@ -7,8 +10,13 @@ __pycache__/
 .vscode/
 .pytest_cache/
 *.db
+_before_figma_upgrade/
+figma-reference/
 
 # Test artifacts
+app_check.txt
+error*.txt
+test_*.txt
 test_output*.txt
 error_test.txt
 test_student_management.db

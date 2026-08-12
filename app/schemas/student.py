@@ -12,6 +12,12 @@ class StudentBase(BaseModel):
     email: EmailStr
     phone: str | None = None
     date_of_birth: date | None = None
+    profile_photo: str | None = None
+    gender: str | None = None
+    address: str | None = None
+    parent_name: str | None = None
+    parent_phone: str | None = None
+    blood_group: str | None = None
     course_id: int | None = None
     academic_year_id: int | None = None
     semester_id: int | None = None
@@ -121,7 +127,7 @@ class StudentBase(BaseModel):
 
 
 class StudentCreate(StudentBase):
-    status: Literal["active", "inactive"] = "active"
+    status: Literal["active", "inactive", "transferred"] = "active"
 
 
 class StudentUpdate(BaseModel):
@@ -131,12 +137,18 @@ class StudentUpdate(BaseModel):
     email: EmailStr | None = None
     phone: str | None = None
     date_of_birth: date | None = None
+    profile_photo: str | None = None
+    gender: str | None = None
+    address: str | None = None
+    parent_name: str | None = None
+    parent_phone: str | None = None
+    blood_group: str | None = None
     course_id: int | None = None
     academic_year_id: int | None = None
     semester_id: int | None = None
     batch_id: int | None = None
     admission_date: date | None = None
-    status: Literal["active", "inactive"] | None = None
+    status: Literal["active", "inactive", "transferred"] | None = None
 
     @field_validator("student_code")
     @classmethod
@@ -250,7 +262,7 @@ class StudentUpdate(BaseModel):
 
 class StudentResponse(StudentBase):
     id: int
-    status: Literal["active", "inactive"]
+    status: Literal["active", "inactive", "transferred"]
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token
 from app.database.database import get_db
-from app.schemas.user import LoginRequest, TokenResponse
+from app.dependencies.auth import get_current_user
+from app.models.user import User
+from app.schemas.user import LoginRequest, TokenResponse, UserResponse
 from app.services import user_service
 
 
@@ -46,3 +48,10 @@ def login(
         token_type="bearer",
         user=user,
     )
+
+
+@router.get("/me", response_model=UserResponse)
+def get_current_user_profile(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    return current_user

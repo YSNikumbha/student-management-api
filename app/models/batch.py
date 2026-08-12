@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from app.models.course import Course
     from app.models.semester import Semester
     from app.models.student import Student
+    from app.models.user import User
 
 
 class Batch(Base):
@@ -35,8 +36,15 @@ class Batch(Base):
         nullable=True,
         index=True,
     )
+    class_teacher_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=True,
+        index=True,
+    )
     section: Mapped[str | None] = mapped_column(String(10), nullable=True)
     capacity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    room: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    schedule: Mapped[str | None] = mapped_column(String(150), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
@@ -53,5 +61,6 @@ class Batch(Base):
     course: Mapped[Course] = relationship(back_populates="batches")
     academic_year: Mapped[AcademicYear] = relationship(back_populates="batches")
     semester: Mapped[Semester | None] = relationship(back_populates="batches")
+    class_teacher: Mapped[User | None] = relationship(back_populates="classes_taught")
     students: Mapped[list[Student]] = relationship(back_populates="batch")
     attendance_sessions: Mapped[list["AttendanceSession"]] = relationship(back_populates="batch")

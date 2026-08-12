@@ -8,8 +8,11 @@ class BatchBase(BaseModel):
     course_id: int
     academic_year_id: int
     semester_id: int | None = None
+    class_teacher_id: int | None = None
     section: str | None = Field(None, max_length=10)
     capacity: int | None = Field(None, gt=0)
+    room: str | None = Field(None, max_length=50)
+    schedule: str | None = Field(None, max_length=150)
 
     @field_validator("name")
     @classmethod
@@ -26,8 +29,11 @@ class BatchUpdate(BaseModel):
     course_id: int | None = None
     academic_year_id: int | None = None
     semester_id: int | None = None
+    class_teacher_id: int | None = None
     section: str | None = Field(None, max_length=10)
     capacity: int | None = Field(None, gt=0)
+    room: str | None = Field(None, max_length=50)
+    schedule: str | None = Field(None, max_length=150)
     is_active: bool | None = None
 
     @field_validator("name")

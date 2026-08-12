@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from app.models.audit_log import AuditLog
     from app.models.attendance import Attendance
     from app.models.attendance_session import AttendanceSession
+    from app.models.batch import Batch
     from app.models.notification import Notification
     from app.models.payment import Payment
     from app.models.student_document import StudentDocument
@@ -56,5 +57,9 @@ class User(Base):
     audit_logs: Mapped[list[AuditLog]] = relationship(back_populates="user")
     notifications: Mapped[list[Notification]] = relationship(
         back_populates="user",
+        passive_deletes=True,
+    )
+    classes_taught: Mapped[list[Batch]] = relationship(
+        back_populates="class_teacher",
         passive_deletes=True,
     )

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base
 
 if TYPE_CHECKING:
+    from app.models.academic_performance import Assessment
     from app.models.course import Course
     from app.models.semester import Semester
 
@@ -47,3 +48,4 @@ class Subject(Base):
     course: Mapped[Course] = relationship(back_populates="subjects")
     semester: Mapped[Semester] = relationship(back_populates="subjects")
     attendance_sessions: Mapped[list["AttendanceSession"]] = relationship(back_populates="subject")
+    assessments: Mapped[list[Assessment]] = relationship(back_populates="subject")

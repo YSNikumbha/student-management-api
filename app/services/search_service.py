@@ -64,7 +64,7 @@ def _course_results(db: Session, pattern: str, limit: int) -> list[SearchResult]
             title=course.name,
             subtitle=course.code,
             type="course",
-            url=f"/admin/courses?search={course.code}",
+            url=f"/admin/classes?search={course.code}",
         )
         for course in db.execute(statement).scalars().all()
     ]
@@ -91,7 +91,7 @@ def _subject_results(db: Session, pattern: str, limit: int) -> list[SearchResult
             title=subject.name,
             subtitle=f"{subject.code} - {course.name}",
             type="subject",
-            url="/admin/courses",
+            url="/admin/classes",
         )
         for subject, course in db.execute(statement).all()
     ]
@@ -120,7 +120,7 @@ def _batch_results(db: Session, pattern: str, limit: int) -> list[SearchResult]:
                 item for item in (course.name, batch.section) if item
             ),
             type="batch",
-            url="/admin/courses",
+            url="/admin/classes",
         )
         for batch, course in db.execute(statement).all()
     ]
@@ -145,7 +145,7 @@ def _user_results(db: Session, pattern: str, limit: int) -> list[SearchResult]:
             title=user.name,
             subtitle=f"{user.email} - {user.role}",
             type="user",
-            url="/admin/users",
+            url="/admin/settings",
         )
         for user in db.execute(statement).scalars().all()
     ]

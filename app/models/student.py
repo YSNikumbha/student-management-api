@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from app.models.batch import Batch
     from app.models.course import Course
     from app.models.semester import Semester
+    from app.models.academic_performance import StudentResult
     from app.models.student_document import StudentDocument
     from app.models.student_fee import StudentFee
 
@@ -37,6 +38,12 @@ class Student(Base):
     )
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
+    profile_photo: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    gender: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    parent_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    parent_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    blood_group: Mapped[str | None] = mapped_column(String(10), nullable=True)
     course_id: Mapped[int | None] = mapped_column(
         ForeignKey("courses.id"),
         nullable=True,
@@ -69,6 +76,10 @@ class Student(Base):
     semester: Mapped[Semester | None] = relationship(back_populates="students")
     batch: Mapped[Batch | None] = relationship(back_populates="students")
     attendances: Mapped[list["Attendance"]] = relationship(back_populates="student")
+    results: Mapped[list[StudentResult]] = relationship(
+        back_populates="student",
+        passive_deletes=True,
+    )
     documents: Mapped[list[StudentDocument]] = relationship(
         back_populates="student",
         passive_deletes=True,

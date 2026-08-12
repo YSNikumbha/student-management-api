@@ -14,6 +14,7 @@ from app.database.base import Base
 from app.database.database import get_db
 from app.main import app
 from app.models.academic_year import AcademicYear
+from app.models.academic_performance import Assessment, StudentResult
 from app.models.audit_log import AuditLog
 from app.models.attendance import Attendance
 from app.models.attendance_session import AttendanceSession
@@ -29,6 +30,7 @@ from app.models.student import Student
 from app.models.student_document import StudentDocument
 from app.models.student_fee import StudentFee
 from app.models.subject import Subject
+from app.models.system_setting import NotificationPreference, SystemSetting
 from app.models.user import User
 
 

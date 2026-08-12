@@ -17,6 +17,7 @@ class FeeStatus(str, Enum):
 
 class StudentFeeCreate(BaseModel):
     student_id: int
+    invoice_number: str | None = Field(default=None, max_length=50)
     title: str = Field(max_length=150)
     description: str | None = Field(default=None, max_length=500)
     total_amount: Decimal = Field(gt=Decimal("0.00"), max_digits=12, decimal_places=2)
@@ -46,6 +47,7 @@ class StudentFeeCreate(BaseModel):
 
 
 class StudentFeeUpdate(BaseModel):
+    invoice_number: str | None = Field(default=None, max_length=50)
     title: str | None = Field(default=None, max_length=150)
     description: str | None = Field(default=None, max_length=500)
     total_amount: Decimal | None = Field(
@@ -85,6 +87,7 @@ class StudentFeeResponse(BaseModel):
     id: int
     student_id: int
     fee_structure_id: int | None = None
+    invoice_number: str | None = None
     fee_structure_name: str | None = None
     student_code: str | None = None
     student_name: str | None = None
