@@ -10,6 +10,16 @@ from app.services import user_service
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
+ADMIN_ROLE = "admin"
+TEACHER_ROLE = "teacher"
+ACCOUNTANT_ROLE = "accountant"
+STAFF_ROLE = "staff"
+
+ATTENDANCE_EDITOR_ROLES = {ADMIN_ROLE, TEACHER_ROLE, STAFF_ROLE}
+FEE_MANAGER_ROLES = {ADMIN_ROLE, ACCOUNTANT_ROLE}
+PAYMENT_RECORDER_ROLES = {ADMIN_ROLE, ACCOUNTANT_ROLE, STAFF_ROLE}
+GENERAL_REPORT_ROLES = {ADMIN_ROLE, TEACHER_ROLE, STAFF_ROLE}
+FEE_REPORT_ROLES = {ADMIN_ROLE, TEACHER_ROLE, ACCOUNTANT_ROLE, STAFF_ROLE}
 
 
 def _unauthorized_exception() -> HTTPException:
@@ -49,10 +59,77 @@ def get_current_user(
 
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role != "admin":
+    if current_user.role != ADMIN_ROLE:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
         )
 
+    return current_user
+
+
+def require_roles(*roles: str):
+    allowed_roles = set(roles)
+
+    def dependency(current_user: User = Depends(get_current_user)) -> User:
+        if current_user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to perform this action",
+            )
+        return current_user
+
+    return dependency
+
+
+def require_attendance_editor(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    if current_user.role not in ATTENDANCE_EDITOR_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Attendance access required",
+        )
+    return current_user
+
+
+def require_fee_manager(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role not in FEE_MANAGER_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Fee management access required",
+        )
+    return current_user
+
+
+def require_payment_recorder(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    if current_user.role not in PAYMENT_RECORDER_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Payment access required",
+        )
+    return current_user
+
+
+def require_general_report_reader(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    if current_user.role not in GENERAL_REPORT_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Report access required",
+        )
+    return current_user
+
+
+def require_fee_report_reader(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    if current_user.role not in FEE_REPORT_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Fee report access required",
+        )
     return current_user

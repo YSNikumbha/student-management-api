@@ -3,8 +3,12 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 let currentSessionId = null;
+let currentUser = null;
 
 async function initAttendancePage() {
+  currentUser = AdminApp.getCurrentUser();
+  applyAttendanceRoleVisibility();
+
   await Promise.all([
     loadStudentsForSummary(),
     loadSessionFormOptions(),
@@ -25,12 +29,38 @@ async function initAttendancePage() {
   document.getElementById("summary-student")?.addEventListener("change", loadStudentSummary);
 }
 
+function isAttendanceEditor() {
+  return ["admin", "teacher", "staff"].includes(currentUser?.role);
+}
+
+function isAdmin() {
+  return currentUser?.role === "admin";
+}
+
+function applyAttendanceRoleVisibility() {
+  if (isAttendanceEditor()) {
+    return;
+  }
+
+  document.getElementById("mark-tab")?.closest(".nav-item")?.classList.add("d-none");
+  document.getElementById("mark-panel")?.classList.remove("show", "active");
+  document.getElementById("sessions-tab")?.classList.add("active");
+  document.getElementById("sessions-panel")?.classList.add("show", "active");
+  document.getElementById("create-session-btn")?.classList.add("d-none");
+  document.getElementById("mark-attendance-section")?.classList.add("d-none");
+}
+
 // ============================================
 // CREATE SESSION
 // ============================================
 
 async function handleCreateSession(e) {
   e.preventDefault();
+
+  if (!isAttendanceEditor()) {
+    AdminApp.showAlert("#attendance-alert", "You do not have permission to edit attendance.", "danger");
+    return;
+  }
 
   const date = document.getElementById("session-date").value;
   const course_id = parseInt(document.getElementById("session-course").value);
@@ -296,6 +326,11 @@ function clearAllAttendance() {
 }
 
 async function saveAttendance() {
+  if (!isAttendanceEditor()) {
+    AdminApp.showAlert("#attendance-alert", "You do not have permission to edit attendance.", "danger");
+    return;
+  }
+
   if (!currentSessionId) {
     AdminApp.showAlert("#attendance-alert", "No session selected", "warning");
     return;
@@ -350,7 +385,15 @@ async function loadSessions() {
       return;
     }
 
-    tbody.innerHTML = sessions.map((session) => `
+    tbody.innerHTML = sessions.map((session) => {
+      const deleteButton = isAdmin()
+        ? `
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteSession(${session.id})">
+            <i class="bi bi-trash"></i> Delete
+          </button>
+        `
+        : "";
+      return `
       <tr>
         <td>${AdminApp.formatDate(session.date)}</td>
         <td>${AdminApp.escapeHtml(session.course_name || "")}</td>
@@ -362,12 +405,11 @@ async function loadSessions() {
           <button class="btn btn-sm btn-outline-primary" onclick="viewSession(${session.id})">
             <i class="bi bi-eye"></i> View
           </button>
-          <button class="btn btn-sm btn-outline-danger" onclick="deleteSession(${session.id})">
-            <i class="bi bi-trash"></i> Delete
-          </button>
+          ${deleteButton}
         </td>
       </tr>
-    `).join("");
+    `;
+    }).join("");
   } catch (error) {
     AdminApp.showAlert("#attendance-alert", error.message || "Failed to load sessions", "danger");
   } finally {
@@ -376,6 +418,11 @@ async function loadSessions() {
 }
 
 async function viewSession(sessionId) {
+  if (!isAttendanceEditor()) {
+    AdminApp.showAlert("#attendance-alert", "You do not have permission to edit attendance.", "danger");
+    return;
+  }
+
   currentSessionId = sessionId;
   document.getElementById("mark-tab").click();
   document.getElementById("mark-attendance-section").classList.remove("d-none");

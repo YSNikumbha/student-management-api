@@ -11,7 +11,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
-from app.dependencies.auth import get_current_user, require_admin
+from app.dependencies.auth import require_fee_report_reader, require_general_report_reader
 from app.schemas.report import ReportFilters
 from app.services import report_service
 
@@ -31,7 +31,7 @@ def _validate_date_range(start_date: date | None, end_date: date | None) -> None
 
 @router.get(
     "/students",
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_general_report_reader)],
 )
 def get_student_report(
     search: str | None = None,
@@ -64,7 +64,7 @@ def get_student_report(
 
 @router.get(
     "/attendance",
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_general_report_reader)],
 )
 def get_attendance_report(
     course_id: int | None = None,
@@ -97,7 +97,7 @@ def get_attendance_report(
 
 @router.get(
     "/fees",
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_fee_report_reader)],
 )
 def get_fee_report(
     student_id: int | None = None,
@@ -130,7 +130,7 @@ def get_fee_report(
 
 @router.get(
     "/courses",
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_general_report_reader)],
 )
 def get_course_report(
     search: str | None = None,
@@ -307,7 +307,7 @@ def _write_csv(headers: list[str], rows: list[list[object]]) -> str:
 
 @router.get(
     "/students/export/csv",
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_general_report_reader)],
 )
 def export_students_csv(
     search: str | None = None,
@@ -338,7 +338,7 @@ def export_students_csv(
 
 @router.get(
     "/attendance/export/csv",
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_general_report_reader)],
 )
 def export_attendance_csv(
     course_id: int | None = None,
@@ -369,7 +369,7 @@ def export_attendance_csv(
 
 @router.get(
     "/fees/export/csv",
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_fee_report_reader)],
 )
 def export_fees_csv(
     student_id: int | None = None,
@@ -400,7 +400,7 @@ def export_fees_csv(
 
 @router.get(
     "/courses/export/csv",
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_general_report_reader)],
 )
 def export_courses_csv(
     search: str | None = None,
@@ -458,7 +458,7 @@ def _build_pdf(title: str, headers: list[str], rows: list[list[str]]) -> bytes:
 
 @router.get(
     "/students/export/pdf",
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_general_report_reader)],
 )
 def export_students_pdf(
     search: str | None = None,
@@ -504,7 +504,7 @@ def export_students_pdf(
 
 @router.get(
     "/attendance/export/pdf",
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_general_report_reader)],
 )
 def export_attendance_pdf(
     course_id: int | None = None,
@@ -565,7 +565,7 @@ def export_attendance_pdf(
 
 @router.get(
     "/fees/export/pdf",
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_fee_report_reader)],
 )
 def export_fees_pdf(
     student_id: int | None = None,
@@ -612,7 +612,7 @@ def export_fees_pdf(
 
 @router.get(
     "/courses/export/pdf",
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_general_report_reader)],
 )
 def export_courses_pdf(
     search: str | None = None,

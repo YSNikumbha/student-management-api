@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
   feeDetailsModal = new bootstrap.Modal(document.querySelector("#feeDetailsModal"));
 
   const addButton = document.querySelector("#open-add-fee");
-  if (currentUser?.role !== "admin") {
+  if (!isFeeManager()) {
     addButton.classList.add("d-none");
   }
 
@@ -75,6 +75,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   loadFeesPage();
 });
+
+function isFeeManager() {
+  return ["admin", "accountant"].includes(currentUser?.role);
+}
+
+function canRecordPayments() {
+  return ["admin", "accountant", "staff"].includes(currentUser?.role);
+}
 
 async function loadFeesPage() {
   try {
@@ -195,14 +203,14 @@ function renderFeeTable() {
     const balance = Number(fee.balance || 0);
     const total = Number(fee.total_amount || 0);
     const paid = Number(fee.paid_amount || 0);
-    const canRecordPayment = balance > 0;
+    const canRecordPayment = balance > 0 && canRecordPayments();
     const progressPercent = total > 0 ? Math.round((paid / total) * 100) : 0;
     const dueDate = new Date(fee.due_date);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const dueDateText = getDueDateText(dueDate, today);
 
-    const adminActions = currentUser?.role === "admin"
+    const feeManagerActions = isFeeManager()
       ? `
           <button class="btn btn-sm btn-action-view" type="button" data-action="details" data-id="${fee.id}" aria-label="View fee details">
             <i class="bi bi-eye"></i>
@@ -219,7 +227,7 @@ function renderFeeTable() {
             <i class="bi bi-eye"></i>
           </button>
         `;
-    const paymentButton = canRecordPayment && currentUser?.role === "admin"
+    const paymentButton = canRecordPayment
       ? `
           <button class="btn btn-sm btn-outline-success btn-icon" type="button" data-action="pay" data-id="${fee.id}" aria-label="Record payment">
             <i class="bi bi-cash-coin"></i>
@@ -251,7 +259,7 @@ function renderFeeTable() {
         <td class="text-end">
           <span class="action-buttons">
             ${paymentButton}
-            ${adminActions}
+            ${feeManagerActions}
           </span>
         </td>
       </tr>
@@ -615,7 +623,7 @@ function renderPaymentHistory(payments) {
   }
 
   tableBody.innerHTML = payments.map((payment) => {
-    const deleteButton = currentUser?.role === "admin"
+    const deleteButton = isFeeManager()
       ? `
           <button class="btn btn-sm btn-outline-danger btn-icon" type="button" data-action="delete-payment" data-id="${payment.id}" aria-label="Delete payment">
             <i class="bi bi-trash"></i>

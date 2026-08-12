@@ -43,7 +43,14 @@ const ReportsApp = (() => {
   let currentPageSize = 100;
 
   function init() {
+    const allowedTypes = getAllowedReportTypes();
     document.querySelectorAll(".report-type-btn").forEach((button) => {
+      const reportType = button.dataset.reportType;
+      if (!allowedTypes.includes(reportType)) {
+        button.classList.add("d-none");
+        return;
+      }
+
       button.addEventListener("click", () => {
         document.querySelectorAll(".report-type-btn").forEach((btn) => btn.classList.remove("active"));
         button.classList.add("active");
@@ -55,9 +62,21 @@ const ReportsApp = (() => {
     document.getElementById("export-csv")?.addEventListener("click", () => exportReport("csv"));
     document.getElementById("export-pdf")?.addEventListener("click", () => exportReport("pdf"));
 
-    handleReportTypeChange("students");
+    const initialReportType = allowedTypes.includes("students") ? "students" : allowedTypes[0];
+    document.querySelectorAll(".report-type-btn").forEach((button) => {
+      button.classList.toggle("active", button.dataset.reportType === initialReportType);
+    });
+    handleReportTypeChange(initialReportType);
     loadCourses();
     loadStudents();
+  }
+
+  function getAllowedReportTypes() {
+    const role = AdminApp.getCurrentUser()?.role;
+    if (role === "accountant") {
+      return ["fees"];
+    }
+    return ["students", "attendance", "fees", "courses"];
   }
 
   async function loadCourses() {
@@ -215,6 +234,11 @@ const ReportsApp = (() => {
   }
 
   async function generateReport() {
+    if (!getAllowedReportTypes().includes(currentReportType)) {
+      AdminApp.showAlert("#reports-alert", "You do not have permission to generate this report.", "danger");
+      return;
+    }
+
     const loadingEl = document.getElementById("report-loading");
     const resultEl = document.getElementById("report-result");
     const emptyEl = document.getElementById("report-empty");
@@ -416,6 +440,11 @@ const ReportsApp = (() => {
   }
 
   async function exportReport(format) {
+    if (!getAllowedReportTypes().includes(currentReportType)) {
+      AdminApp.showAlert("#reports-alert", "You do not have permission to export this report.", "danger");
+      return;
+    }
+
     try {
       const queryString = buildReportQuery();
       const baseEndpoint = EXPORT_ENDPOINTS[currentReportType];

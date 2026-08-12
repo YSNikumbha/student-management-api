@@ -32,6 +32,8 @@ def login(
             detail="This account is inactive",
         )
 
+    user = user_service.record_last_login(db, user)
+
     access_token = create_access_token(
         data={
             "sub": user.email,

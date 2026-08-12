@@ -17,6 +17,7 @@ from app.routers.reports import router as reports_router
 from app.routers.semesters import router as semesters_router
 from app.routers.students import router as students_router
 from app.routers.subjects import router as subjects_router
+from app.routers.users import router as users_router
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
@@ -44,6 +45,7 @@ app.include_router(fees_router)
 app.include_router(payments_router)
 app.include_router(reports_router)
 app.include_router(dashboard_router)
+app.include_router(users_router)
 app.mount("/admin/assets", StaticFiles(directory=FRONTEND_DIR), name="admin-assets")
 
 
@@ -80,6 +82,11 @@ def read_admin_fees() -> FileResponse:
 @app.get("/admin/reports", include_in_schema=False)
 def read_admin_reports() -> FileResponse:
     return FileResponse(FRONTEND_DIR / "reports.html")
+
+
+@app.get("/admin/users", include_in_schema=False)
+def read_admin_users() -> FileResponse:
+    return FileResponse(FRONTEND_DIR / "users.html")
 
 
 @app.get("/login", include_in_schema=False)

@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
-from app.dependencies.auth import get_current_user, require_admin
+from app.dependencies.auth import get_current_user, require_admin, require_attendance_editor
 from app.models.attendance_session import AttendanceSession
 from app.models.user import User
 from app.schemas.attendance_session import (
@@ -27,7 +27,7 @@ router = APIRouter(prefix="/attendance", tags=["Attendance Sessions"])
 def create_session(
     session_data: AttendanceSessionCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_attendance_editor),
 ) -> AttendanceSession:
     try:
         return attendance_session_service.create_attendance_session(
@@ -137,7 +137,7 @@ def update_session(
     session_id: int,
     session_data: AttendanceSessionUpdate,
     db: Session = Depends(get_db),
-    _current_user: User = Depends(require_admin),
+    _current_user: User = Depends(require_attendance_editor),
 ) -> AttendanceSession:
     session = attendance_session_service.update_attendance_session(db, session_id, session_data)
     if not session:
@@ -182,7 +182,7 @@ def bulk_create_records(
     session_id: int,
     records: AttendanceBulkCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_attendance_editor),
 ) -> dict:
     try:
         result = attendance_session_service.bulk_create_attendance(

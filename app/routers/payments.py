@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
-from app.dependencies.auth import require_admin
+from app.dependencies.auth import require_fee_manager
 from app.models.user import User
 from app.services import payment_service
 
@@ -20,7 +20,7 @@ router = APIRouter(
 def delete_payment(
     payment_id: int,
     db: Session = Depends(get_db),
-    _current_user: User = Depends(require_admin),
+    _current_user: User = Depends(require_fee_manager),
 ) -> Response:
     payment = payment_service.get_payment_by_id(db, payment_id)
     if payment is None:

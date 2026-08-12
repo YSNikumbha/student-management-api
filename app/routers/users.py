@@ -1,0 +1,158 @@
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.database.database import get_db
+from app.dependencies.auth import require_admin
+from app.models.user import User
+from app.schemas.pagination import PaginatedResponse, build_paginated_response
+from app.schemas.user import PasswordResetRequest, UserCreate, UserResponse, UserUpdate
+from app.services import user_service
+
+
+router = APIRouter(
+    prefix="/users",
+    tags=["Users"],
+)
+
+
+def _get_user_or_404(db: Session, user_id: int) -> User:
+    user = user_service.get_user_by_id(db, user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    return user
+
+
+def _ensure_unique_email(db: Session, email: str, user_id: int | None = None) -> None:
+    existing_user = user_service.get_user_by_email(db, email)
+    if existing_user is not None and existing_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A user with this email already exists",
+        )
+
+
+@router.get("", response_model=PaginatedResponse[UserResponse])
+def get_users(
+    search: str | None = None,
+    role: str | None = None,
+    is_active: bool | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(require_admin),
+) -> dict[str, list[User] | int]:
+    users, total_items = user_service.get_users_paginated(
+        db,
+        search=search,
+        role=role,
+        is_active=is_active,
+        page=page,
+        page_size=page_size,
+    )
+    return build_paginated_response(users, page, page_size, total_items)
+
+
+@router.post(
+    "",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_user(
+    user_data: UserCreate,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(require_admin),
+) -> User:
+    _ensure_unique_email(db, str(user_data.email))
+
+    try:
+        return user_service.create_user(db, user_data)
+    except IntegrityError as error:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User could not be created",
+        ) from error
+
+
+@router.get("/{user_id}", response_model=UserResponse)
+def get_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(require_admin),
+) -> User:
+    return _get_user_or_404(db, user_id)
+
+
+@router.put("/{user_id}", response_model=UserResponse)
+def update_user(
+    user_id: int,
+    user_data: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> User:
+    user = _get_user_or_404(db, user_id)
+    update_data = user_data.model_dump(exclude_unset=True)
+
+    if user.id == current_user.id:
+        if update_data.get("is_active") is False:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="You cannot deactivate your own account",
+            )
+        if update_data.get("role") is not None and update_data["role"] != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="You cannot remove your own admin role",
+            )
+
+    if user_data.email is not None:
+        _ensure_unique_email(db, str(user_data.email), user_id=user.id)
+
+    try:
+        return user_service.update_user(db, user, user_data)
+    except IntegrityError as error:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User could not be updated",
+        ) from error
+
+
+@router.patch("/{user_id}/deactivate", response_model=UserResponse)
+def deactivate_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> User:
+    if user_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="You cannot deactivate your own account",
+        )
+    user = _get_user_or_404(db, user_id)
+    return user_service.set_user_active(db, user, False)
+
+
+@router.patch("/{user_id}/activate", response_model=UserResponse)
+def activate_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(require_admin),
+) -> User:
+    user = _get_user_or_404(db, user_id)
+    return user_service.set_user_active(db, user, True)
+
+
+@router.post("/{user_id}/reset-password", response_model=UserResponse)
+def reset_user_password(
+    user_id: int,
+    password_data: PasswordResetRequest,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(require_admin),
+) -> User:
+    user = _get_user_or_404(db, user_id)
+    return user_service.reset_user_password(db, user, password_data.new_password)

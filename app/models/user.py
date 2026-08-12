@@ -34,6 +34,7 @@ class User(Base):
         nullable=False,
         default=lambda: datetime.now(UTC),
     )
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     created_fees: Mapped[list[StudentFee]] = relationship(
         back_populates="creator",

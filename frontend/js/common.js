@@ -1,14 +1,16 @@
 const AdminApp = (() => {
   const TOKEN_KEY = "student_management_token";
   const USER_KEY = "student_management_user";
+  const ALL_ROLES = ["admin", "teacher", "accountant", "staff"];
 
   const navItems = [
-    { key: "dashboard", label: "Dashboard", icon: "bi-speedometer2", href: "/admin" },
-    { key: "students", label: "Students", icon: "bi-people", href: "/admin/students" },
-    { key: "courses", label: "Courses", icon: "bi-journal-bookmark", href: "/admin/courses" },
-    { key: "attendance", label: "Attendance", icon: "bi-calendar-check", href: "/admin/attendance" },
-    { key: "fees", label: "Fees", icon: "bi-cash-coin", href: "/admin/fees" },
-    { key: "reports", label: "Reports", icon: "bi-bar-chart", href: "/admin/reports" },
+    { key: "dashboard", label: "Dashboard", icon: "bi-speedometer2", href: "/admin", roles: ALL_ROLES },
+    { key: "students", label: "Students", icon: "bi-people", href: "/admin/students", roles: ALL_ROLES },
+    { key: "courses", label: "Courses", icon: "bi-journal-bookmark", href: "/admin/courses", roles: ALL_ROLES },
+    { key: "attendance", label: "Attendance", icon: "bi-calendar-check", href: "/admin/attendance", roles: ["admin", "teacher", "staff"] },
+    { key: "fees", label: "Fees", icon: "bi-cash-coin", href: "/admin/fees", roles: ["admin", "accountant", "staff"] },
+    { key: "reports", label: "Reports", icon: "bi-bar-chart", href: "/admin/reports", roles: ALL_ROLES },
+    { key: "users", label: "Users", icon: "bi-person-gear", href: "/admin/users", roles: ["admin"] },
   ];
 
   // ============================================
@@ -679,6 +681,11 @@ const AdminApp = (() => {
     }
   }
 
+  function hasAnyRole(...roles) {
+    const user = getCurrentUser();
+    return Boolean(user && roles.includes(user.role));
+  }
+
   function isAuthenticated() {
     return Boolean(getToken() && getCurrentUser());
   }
@@ -771,7 +778,14 @@ const AdminApp = (() => {
     }
 
     const activePage = document.body.dataset.page || "dashboard";
-    const links = navItems.map((item) => {
+    const user = getCurrentUser();
+    const visibleItems = navItems.filter((item) => {
+      if (!item.roles || item.roles.length === 0) {
+        return true;
+      }
+      return Boolean(user && item.roles.includes(user.role));
+    });
+    const links = visibleItems.map((item) => {
       const isActive = item.key === activePage;
       const classes = ["sidebar-link", isActive ? "active" : "", item.disabled ? "disabled" : ""]
         .filter(Boolean)
@@ -887,6 +901,7 @@ const AdminApp = (() => {
     formatCurrency,
     formatDate,
     getCurrentUser,
+    hasAnyRole,
     getItems,
     getToken,
     isAuthenticated,

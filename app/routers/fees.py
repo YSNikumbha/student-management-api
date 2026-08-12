@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
-from app.dependencies.auth import get_current_user, require_admin
+from app.dependencies.auth import get_current_user, require_fee_manager, require_payment_recorder
 from app.models.user import User
 from app.schemas.pagination import PaginatedResponse, build_paginated_response
 from app.schemas.payment import PaymentCreate, PaymentResponse
@@ -53,7 +53,7 @@ def _get_student_or_404(db: Session, student_id: int) -> None:
 def create_fee(
     fee_data: StudentFeeCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_fee_manager),
 ) -> StudentFeeResponse:
     _get_student_or_404(db, fee_data.student_id)
 
@@ -148,7 +148,7 @@ def update_fee(
     fee_id: int,
     fee_data: StudentFeeUpdate,
     db: Session = Depends(get_db),
-    _current_user: User = Depends(require_admin),
+    _current_user: User = Depends(require_fee_manager),
 ) -> StudentFeeResponse:
     fee = _get_fee_or_404(db, fee_id)
     update_data = fee_data.model_dump(exclude_unset=True)
@@ -181,7 +181,7 @@ def update_fee(
 def delete_fee(
     fee_id: int,
     db: Session = Depends(get_db),
-    _current_user: User = Depends(require_admin),
+    _current_user: User = Depends(require_fee_manager),
 ) -> Response:
     fee = _get_fee_or_404(db, fee_id)
 
@@ -212,7 +212,7 @@ def create_payment(
     fee_id: int,
     payment_data: PaymentCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_payment_recorder),
 ) -> PaymentResponse:
     fee = _get_fee_or_404(db, fee_id)
     paid_amount = payment_service.calculate_total_paid(db, fee.id)

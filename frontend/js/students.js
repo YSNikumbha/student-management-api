@@ -148,8 +148,11 @@ function renderStudents() {
     const course = courseById.get(student.course_id);
     const courseName = course ? course.name : "Not Assigned";
 
-    const deleteButton = currentUser?.role === "admin"
+    const adminActions = currentUser?.role === "admin"
       ? `
+            <button class="btn btn-sm btn-action-edit" type="button" data-action="edit" data-id="${student.id}" aria-label="Edit student">
+              <i class="bi bi-pencil"></i> Edit
+            </button>
             <button class="btn btn-sm btn-outline-danger btn-icon" type="button" data-action="delete" data-id="${student.id}" aria-label="Delete student">
               <i class="bi bi-trash"></i>
             </button>
@@ -169,10 +172,7 @@ function renderStudents() {
             <button class="btn btn-sm btn-action-view" type="button" data-action="view" data-id="${student.id}" aria-label="View student">
               <i class="bi bi-eye"></i> View
             </button>
-            <button class="btn btn-sm btn-action-edit" type="button" data-action="edit" data-id="${student.id}" aria-label="Edit student">
-              <i class="bi bi-pencil"></i> Edit
-            </button>
-            ${deleteButton}
+            ${adminActions}
           </span>
         </td>
       </tr>

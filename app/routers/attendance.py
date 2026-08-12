@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
-from app.dependencies.auth import get_current_user, require_admin
+from app.dependencies.auth import get_current_user, require_admin, require_attendance_editor
 from app.models.attendance import Attendance, AttendanceStatus
 from app.models.user import User
 from app.schemas.attendance import (
@@ -52,7 +52,7 @@ def _get_course_or_404(db: Session, course_id: int) -> None:
 def create_attendance(
     attendance_data: AttendanceCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_attendance_editor),
 ) -> Attendance:
     _get_student_or_404(db, attendance_data.student_id)
 
@@ -85,7 +85,7 @@ def create_attendance(
 def bulk_mark_attendance(
     attendance_data: AttendanceBulkCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_attendance_editor),
 ) -> AttendanceBulkResponse:
     student_ids = [record.student_id for record in attendance_data.records]
     unique_student_ids = set(student_ids)
@@ -257,7 +257,7 @@ def update_attendance(
     attendance_id: int,
     attendance_data: AttendanceUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_attendance_editor),
 ) -> Attendance:
     attendance = attendance_service.get_attendance_by_id(db, attendance_id)
     if attendance is None:

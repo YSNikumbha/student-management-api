@@ -15,7 +15,7 @@ from app.schemas.user import UserCreate  # noqa: E402
 from app.services import user_service  # noqa: E402
 
 
-VALID_ROLES = {"admin", "staff"}
+VALID_ROLES = {"admin", "teacher", "accountant", "staff"}
 
 
 def prompt_value(label: str, env_name: str, secret: bool = False) -> str:
@@ -30,7 +30,7 @@ def prompt_value(label: str, env_name: str, secret: bool = False) -> str:
 def normalize_role(role: str) -> str:
     normalized_role = role.strip().lower()
     if normalized_role not in VALID_ROLES:
-        raise ValueError("Role must be either 'admin' or 'staff'.")
+        raise ValueError("Role must be one of: admin, teacher, accountant, staff.")
     return normalized_role
 
 
