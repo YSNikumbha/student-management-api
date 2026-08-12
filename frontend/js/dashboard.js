@@ -4,17 +4,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
 async function loadDashboard() {
   try {
-    const [summary, activity] = await Promise.all([
+    const [summary, activity, attention] = await Promise.all([
       AdminApp.authFetch("/dashboard/summary"),
       AdminApp.authFetch("/dashboard/recent-activity"),
+      AdminApp.authFetch("/dashboard/attention"),
     ]);
 
     renderSummary(summary);
+    renderAttention(attention);
     renderRecentStudents(activity.recent_students);
     renderRecentPayments(activity.recent_payments);
     renderRecentAttendance(activity.recent_attendance);
   } catch (error) {
     AdminApp.showAlert("#dashboard-alert", error.message, "danger");
+    renderAttention(null);
     setRecentEmpty("#recent-students-body", 5, "No students found.");
     setRecentEmpty("#recent-payments-body", 5, "No payments recorded yet.");
     setRecentEmpty("#recent-attendance-body", 4, "No attendance records found.");
@@ -30,6 +33,112 @@ function renderSummary(summary) {
   document.querySelector("#fees-collected").textContent = AdminApp.formatCurrency(summary.fees.total_collected);
   document.querySelector("#fees-pending").textContent = AdminApp.formatCurrency(summary.fees.total_pending);
   document.querySelector("#fees-overdue").textContent = summary.fees.overdue_count;
+}
+
+function renderAttention(attention) {
+  const container = document.querySelector("#attention-widgets");
+  if (!container) {
+    return;
+  }
+
+  if (!attention) {
+    container.innerHTML = '<div class="activity-empty">Unable to load attention items.</div>';
+    return;
+  }
+
+  const groups = [
+    {
+      title: "Below 75% Attendance",
+      href: "/admin/attendance",
+      icon: "bi-exclamation-triangle",
+      items: attention.low_attendance_students.map((item) => ({
+        label: item.student_name,
+        detail: `${item.student_code} · ${item.attendance_percentage}%`,
+        url: item.url,
+        warning: true,
+      })),
+    },
+    {
+      title: "Overdue Fees",
+      href: "/admin/fees?status=overdue",
+      icon: "bi-receipt",
+      items: attention.overdue_fees.map((item) => ({
+        label: item.student_name,
+        detail: `${item.title} · ${AdminApp.formatCurrency(item.balance)}`,
+        url: item.url,
+        warning: true,
+      })),
+    },
+    {
+      title: "Fees Due Soon",
+      href: "/admin/fees",
+      icon: "bi-calendar-event",
+      items: attention.fees_due_soon.map((item) => ({
+        label: item.student_name,
+        detail: `${item.title} · due ${AdminApp.escapeHtml(item.due_date)}`,
+        url: item.url,
+      })),
+    },
+    {
+      title: "Unmarked Today",
+      href: "/admin/attendance",
+      icon: "bi-calendar-x",
+      items: attention.unmarked_attendance_sessions_today.map((item) => ({
+        label: item.subject_name,
+        detail: item.batch_name,
+        url: item.url,
+      })),
+    },
+    {
+      title: "Recently Admitted",
+      href: "/admin/students",
+      icon: "bi-person-plus",
+      items: attention.recently_admitted_students.map((item) => ({
+        label: item.student_name,
+        detail: `${item.student_code} · ${AdminApp.formatDate(item.admission_date || item.created_at)}`,
+        url: item.url,
+      })),
+    },
+    {
+      title: "Recent Payments",
+      href: "/admin/fees",
+      icon: "bi-cash-stack",
+      items: attention.recent_payments.map((item) => ({
+        label: item.student_name,
+        detail: `${item.fee_title} · ${AdminApp.formatCurrency(item.amount)}`,
+        url: "/admin/fees",
+      })),
+    },
+  ];
+
+  container.innerHTML = groups.map((group) => renderAttentionWidget(group)).join("");
+}
+
+function renderAttentionWidget(group) {
+  const visibleItems = group.items.slice(0, 3);
+  const itemHtml = visibleItems.length
+    ? visibleItems.map((item) => `
+        <a class="attention-item ${item.warning ? "attention-warning" : ""}" href="${AdminApp.escapeHtml(item.url)}">
+          <span class="attention-item-label">${AdminApp.escapeHtml(item.label)}</span>
+          <span class="attention-item-detail">${AdminApp.escapeHtml(item.detail)}</span>
+        </a>
+      `).join("")
+    : '<div class="attention-empty">No items.</div>';
+
+  return `
+    <article class="attention-widget">
+      <div class="attention-widget-header">
+        <div>
+          <i class="bi ${group.icon}"></i>
+          <span>${AdminApp.escapeHtml(group.title)}</span>
+        </div>
+        <a href="${AdminApp.escapeHtml(group.href)}">${group.items.length}</a>
+      </div>
+      <div class="attention-list">
+        ${itemHtml}
+      </div>
+    </article>
+  `;
 }
 
 function renderRecentStudents(students) {

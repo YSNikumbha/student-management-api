@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from app.models.batch import Batch
     from app.models.course import Course
     from app.models.semester import Semester
+    from app.models.student_document import StudentDocument
     from app.models.student_fee import StudentFee
 
 
@@ -68,6 +69,10 @@ class Student(Base):
     semester: Mapped[Semester | None] = relationship(back_populates="students")
     batch: Mapped[Batch | None] = relationship(back_populates="students")
     attendances: Mapped[list["Attendance"]] = relationship(back_populates="student")
+    documents: Mapped[list[StudentDocument]] = relationship(
+        back_populates="student",
+        passive_deletes=True,
+    )
     fees: Mapped[list[StudentFee]] = relationship(
         back_populates="student",
         passive_deletes=True,

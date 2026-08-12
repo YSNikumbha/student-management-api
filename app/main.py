@@ -13,9 +13,12 @@ from app.routers.batches import router as batches_router
 from app.routers.courses import router as courses_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.fees import router as fees_router
+from app.routers.notifications import router as notifications_router
 from app.routers.payments import router as payments_router
 from app.routers.reports import router as reports_router
+from app.routers.search import router as search_router
 from app.routers.semesters import router as semesters_router
+from app.routers.student_documents import router as student_documents_router
 from app.routers.students import router as students_router
 from app.routers.subjects import router as subjects_router
 from app.routers.users import router as users_router
@@ -38,6 +41,7 @@ app.include_router(academic_years_router)
 app.include_router(semesters_router)
 app.include_router(subjects_router)
 app.include_router(batches_router)
+app.include_router(student_documents_router)
 app.include_router(students_router)
 app.include_router(courses_router)
 app.include_router(attendance_sessions_router)
@@ -48,6 +52,8 @@ app.include_router(reports_router)
 app.include_router(dashboard_router)
 app.include_router(users_router)
 app.include_router(audit_logs_router)
+app.include_router(notifications_router)
+app.include_router(search_router)
 app.mount("/admin/assets", StaticFiles(directory=FRONTEND_DIR), name="admin-assets")
 
 

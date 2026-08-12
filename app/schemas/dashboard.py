@@ -81,3 +81,50 @@ class CourseStatResponse(BaseModel):
     course_code: str
     course_name: str
     student_count: int
+
+
+class LowAttendanceStudentItem(BaseModel):
+    student_id: int
+    student_code: str
+    student_name: str
+    attendance_percentage: float
+    total_sessions: int
+    url: str
+
+
+class AttentionFeeItem(BaseModel):
+    fee_id: int
+    student_id: int
+    student_code: str | None
+    student_name: str
+    title: str
+    due_date: date
+    balance: Decimal
+    url: str
+
+
+class UnmarkedSessionItem(BaseModel):
+    session_id: int
+    session_name: str | None
+    date: datetime
+    subject_name: str
+    batch_name: str
+    url: str
+
+
+class RecentAdmittedStudentItem(BaseModel):
+    student_id: int
+    student_code: str
+    student_name: str
+    admission_date: date | None
+    created_at: datetime
+    url: str
+
+
+class DashboardAttentionResponse(BaseModel):
+    low_attendance_students: list[LowAttendanceStudentItem]
+    overdue_fees: list[AttentionFeeItem]
+    fees_due_soon: list[AttentionFeeItem]
+    unmarked_attendance_sessions_today: list[UnmarkedSessionItem]
+    recently_admitted_students: list[RecentAdmittedStudentItem]
+    recent_payments: list[RecentPaymentItem]

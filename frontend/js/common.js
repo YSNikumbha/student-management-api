@@ -422,6 +422,61 @@ const AdminApp = (() => {
     return { filename, blob };
   }
 
+  async function openAuthenticatedFile(url) {
+    const token = getToken();
+    if (!token) {
+      redirectToLogin();
+      throw new Error("Please log in to continue.");
+    }
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const contentType = response.headers.get("content-type") || "";
+      const errorData = contentType.includes("application/json")
+        ? await response.json()
+        : { detail: await response.text() };
+      const error = new Error(extractErrorMessage(errorData, response.status));
+      error.status = response.status;
+      throw error;
+    }
+
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const opened = window.open(objectUrl, "_blank", "noopener");
+    if (!opened) {
+      URL.revokeObjectURL(objectUrl);
+      throw new Error("Allow pop-ups to view this document.");
+    }
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    return { blob };
+  }
+
+  async function uploadAuthenticatedFile(url, formData, options = {}) {
+    const token = getToken();
+    if (!token) {
+      redirectToLogin();
+      throw new Error("Please log in to continue.");
+    }
+
+    const response = await fetch(url, {
+      ...options,
+      method: options.method || "POST",
+      headers: {
+        Accept: "application/json",
+        ...(options.headers || {}),
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    return handleResponse(response);
+  }
+
   async function handleResponse(response) {
     if (response.status === 204) {
       if (!response.ok) {
@@ -770,6 +825,11 @@ const AdminApp = (() => {
     renderTopbar();
     bindSidebarToggle();
     bindLogout();
+    if (isAuthenticated()) {
+      bindGlobalSearch();
+      bindNotificationMenu();
+      refreshNotifications();
+    }
   }
 
   function renderSidebar() {
@@ -845,7 +905,29 @@ const AdminApp = (() => {
           <p class="topbar-project">Student Management System</p>
         </div>
       </div>
+      <div class="topbar-search">
+        <div class="input-icon">
+          <i class="bi bi-search"></i>
+          <input id="global-search-input" class="form-control" type="search" placeholder="Search students, courses, subjects, batches" autocomplete="off" aria-label="Global search">
+        </div>
+        <div id="global-search-results" class="global-search-results d-none"></div>
+      </div>
       <div class="topbar-user">
+        <div class="dropdown notification-menu">
+          <button id="notification-button" class="btn btn-outline-secondary btn-icon position-relative" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications">
+            <i class="bi bi-bell"></i>
+            <span id="notification-count" class="notification-badge d-none">0</span>
+          </button>
+          <div class="dropdown-menu dropdown-menu-end notification-dropdown" aria-labelledby="notification-button">
+            <div class="notification-header">
+              <span>Notifications</span>
+              <button id="mark-all-notifications" class="btn btn-link btn-sm p-0" type="button">Mark all read</button>
+            </div>
+            <div id="notification-list" class="notification-list">
+              <div class="notification-empty">Loading...</div>
+            </div>
+          </div>
+        </div>
         <div class="admin-chip">
           <span class="avatar-dot"><i class="bi bi-person"></i></span>
           <span>${escapeHtml(name)}</span>
@@ -857,6 +939,174 @@ const AdminApp = (() => {
         </button>
       </div>
     `;
+  }
+
+  function bindGlobalSearch() {
+    const input = document.querySelector("#global-search-input");
+    const results = document.querySelector("#global-search-results");
+    if (!input || !results) {
+      return;
+    }
+
+    const runSearch = debounce(async () => {
+      const query = input.value.trim();
+      if (query.length < 2) {
+        hideGlobalSearchResults();
+        return;
+      }
+
+      results.classList.remove("d-none");
+      results.innerHTML = '<div class="global-search-empty">Searching...</div>';
+
+      try {
+        const response = await authFetch(`/search${buildQueryString({ q: query })}`);
+        renderGlobalSearchResults(response);
+      } catch (error) {
+        results.innerHTML = `<div class="global-search-empty">${escapeHtml(error.message)}</div>`;
+      }
+    }, 250);
+
+    input.addEventListener("input", runSearch);
+    input.addEventListener("focus", () => {
+      if (input.value.trim().length >= 2 && results.innerHTML.trim()) {
+        results.classList.remove("d-none");
+      }
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest(".topbar-search")) {
+        hideGlobalSearchResults();
+      }
+    });
+  }
+
+  function renderGlobalSearchResults(response) {
+    const results = document.querySelector("#global-search-results");
+    if (!results) {
+      return;
+    }
+
+    const groups = [
+      ["students", "Students"],
+      ["courses", "Courses"],
+      ["subjects", "Subjects"],
+      ["batches", "Batches"],
+      ["users", "Users"],
+    ];
+    const html = groups.map(([key, label]) => {
+      const items = response[key] || [];
+      if (!items.length) {
+        return "";
+      }
+
+      return `
+        <div class="global-search-group">
+          <div class="global-search-label">${escapeHtml(label)}</div>
+          ${items.map((item) => `
+            <a class="global-search-result" href="${escapeHtml(item.url)}">
+              <span class="global-search-title">${escapeHtml(item.title)}</span>
+              <span class="global-search-subtitle">${escapeHtml(item.subtitle || "")}</span>
+            </a>
+          `).join("")}
+        </div>
+      `;
+    }).join("");
+
+    results.innerHTML = html || '<div class="global-search-empty">No results found.</div>';
+    results.classList.remove("d-none");
+  }
+
+  function hideGlobalSearchResults() {
+    const results = document.querySelector("#global-search-results");
+    if (results) {
+      results.classList.add("d-none");
+    }
+  }
+
+  function bindNotificationMenu() {
+    const menu = document.querySelector(".notification-menu");
+    if (!menu) {
+      return;
+    }
+
+    menu.addEventListener("click", async (event) => {
+      const markReadButton = event.target.closest("button[data-notification-id]");
+      if (markReadButton) {
+        event.preventDefault();
+        try {
+          await authFetch(`/notifications/${markReadButton.dataset.notificationId}/read`, {
+            method: "PUT",
+          });
+          await refreshNotifications();
+        } catch (error) {
+          showToast("error", error.message);
+        }
+        return;
+      }
+
+      const markAllButton = event.target.closest("#mark-all-notifications");
+      if (markAllButton) {
+        event.preventDefault();
+        try {
+          await authFetch("/notifications/read-all", { method: "PUT" });
+          await refreshNotifications();
+        } catch (error) {
+          showToast("error", error.message);
+        }
+      }
+    });
+  }
+
+  async function refreshNotifications() {
+    const list = document.querySelector("#notification-list");
+    const badge = document.querySelector("#notification-count");
+    if (!list || !badge) {
+      return;
+    }
+
+    try {
+      const response = await authFetch("/notifications?page=1&page_size=5");
+      const countResponse = await authFetch("/notifications/unread-count");
+      renderNotifications(getItems(response), countResponse.unread_count || 0);
+    } catch {
+      list.innerHTML = '<div class="notification-empty">Notifications unavailable.</div>';
+      badge.classList.add("d-none");
+    }
+  }
+
+  function renderNotifications(notifications, unreadCount) {
+    const list = document.querySelector("#notification-list");
+    const badge = document.querySelector("#notification-count");
+    if (!list || !badge) {
+      return;
+    }
+
+    if (unreadCount > 0) {
+      badge.textContent = unreadCount > 99 ? "99+" : String(unreadCount);
+      badge.classList.remove("d-none");
+    } else {
+      badge.classList.add("d-none");
+    }
+
+    if (!notifications.length) {
+      list.innerHTML = '<div class="notification-empty">No notifications.</div>';
+      return;
+    }
+
+    list.innerHTML = notifications.map((notification) => `
+      <div class="notification-item ${notification.is_read ? "" : "unread"}">
+        <div class="notification-item-main">
+          <div class="notification-title">${escapeHtml(notification.title)}</div>
+          <div class="notification-message">${escapeHtml(notification.message)}</div>
+          <div class="notification-time">${escapeHtml(formatDate(notification.created_at))}</div>
+        </div>
+        ${notification.is_read ? "" : `
+          <button class="btn btn-link btn-sm p-0" type="button" data-notification-id="${notification.id}">
+            Mark Read
+          </button>
+        `}
+      </div>
+    `).join("");
   }
 
   function bindSidebarToggle() {
@@ -907,6 +1157,7 @@ const AdminApp = (() => {
     getToken,
     isAuthenticated,
     logout,
+    openAuthenticatedFile,
     renderPagination,
     saveAuthSession,
     setButtonLoading,
@@ -915,6 +1166,7 @@ const AdminApp = (() => {
     showToast,
     statusBadge,
     trimValue,
+    uploadAuthenticatedFile,
     validateDateNotFuture,
     validateDateRange,
     validateEmail,

@@ -6,6 +6,7 @@ from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.schemas.dashboard import (
     CourseStatResponse,
+    DashboardAttentionResponse,
     DashboardSummaryResponse,
     RecentActivityResponse,
 )
@@ -39,3 +40,11 @@ def get_course_stats(
     _current_user: User = Depends(get_current_user),
 ) -> list[CourseStatResponse]:
     return dashboard_service.get_course_stats(db)
+
+
+@router.get("/attention", response_model=DashboardAttentionResponse)
+def get_dashboard_attention(
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+) -> DashboardAttentionResponse:
+    return dashboard_service.get_dashboard_attention(db)

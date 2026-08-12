@@ -6,6 +6,14 @@ let studentAttendanceModal;
 let studentFeesModal;
 let currentUser;
 let studentPageData = null;
+const documentTypes = [
+  ["profile_photo", "Profile Photo"],
+  ["identity_proof", "Identity Proof"],
+  ["marksheet", "Marksheet"],
+  ["certificate", "Certificate"],
+  ["admission_document", "Admission Document"],
+  ["other", "Other"],
+];
 let studentState = {
   page: 1,
   pageSize: 10,
@@ -58,6 +66,8 @@ document.addEventListener("DOMContentLoaded", () => {
     loadStudents();
   });
   document.querySelector("#students-table-body").addEventListener("click", handleStudentAction);
+  document.querySelector("#student-view-content").addEventListener("click", handleStudentViewAction);
+  document.querySelector("#student-view-content").addEventListener("submit", handleDocumentUpload);
 
   loadStudentsPage();
 });
@@ -384,65 +394,306 @@ async function showStudentDetails(studentId) {
 
   document.querySelector("#studentViewModalTitle").textContent = `${fullName} - ${student.student_code}`;
   document.querySelector("#student-view-content").innerHTML = `
-    <div class="student-view-section">
-      <h6 class="student-view-section-title">Personal Information</h6>
-      <div class="student-view-grid">
-        <div class="student-view-item">
-          <span class="student-view-label">Full Name</span>
-          <span class="student-view-value">${AdminApp.escapeHtml(fullName)}</span>
+    <ul class="nav nav-tabs mb-3" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="student-details-tab" data-bs-toggle="tab" data-bs-target="#student-details-pane" type="button" role="tab" aria-controls="student-details-pane" aria-selected="true">
+          Details
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="student-documents-tab" data-bs-toggle="tab" data-bs-target="#student-documents-pane" type="button" role="tab" aria-controls="student-documents-pane" aria-selected="false">
+          Documents
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="student-details-pane" role="tabpanel" aria-labelledby="student-details-tab" tabindex="0">
+        <div class="student-view-section">
+          <h6 class="student-view-section-title">Personal Information</h6>
+          <div class="student-view-grid">
+            <div class="student-view-item">
+              <span class="student-view-label">Full Name</span>
+              <span class="student-view-value">${AdminApp.escapeHtml(fullName)}</span>
+            </div>
+            <div class="student-view-item">
+              <span class="student-view-label">Date of Birth</span>
+              <span class="student-view-value">${student.date_of_birth ? AdminApp.escapeHtml(student.date_of_birth) : "Not provided"}</span>
+            </div>
+            <div class="student-view-item">
+              <span class="student-view-label">Status</span>
+              <span class="student-view-value">${AdminApp.statusBadge(student.status)}</span>
+            </div>
+          </div>
         </div>
-        <div class="student-view-item">
-          <span class="student-view-label">Date of Birth</span>
-          <span class="student-view-value">${student.date_of_birth ? AdminApp.escapeHtml(student.date_of_birth) : "Not provided"}</span>
+
+        <div class="student-view-section">
+          <h6 class="student-view-section-title">Academic Information</h6>
+          <div class="student-view-grid">
+            <div class="student-view-item">
+              <span class="student-view-label">Student Code</span>
+              <span class="student-view-value">${AdminApp.escapeHtml(student.student_code)}</span>
+            </div>
+            <div class="student-view-item">
+              <span class="student-view-label">Course</span>
+              <span class="student-view-value">${AdminApp.escapeHtml(courseName)}</span>
+            </div>
+          </div>
         </div>
-        <div class="student-view-item">
-          <span class="student-view-label">Status</span>
-          <span class="student-view-value">${AdminApp.statusBadge(student.status)}</span>
+
+        <div class="student-view-section">
+          <h6 class="student-view-section-title">Contact Information</h6>
+          <div class="student-view-grid">
+            <div class="student-view-item">
+              <span class="student-view-label">Email</span>
+              <span class="student-view-value">${AdminApp.escapeHtml(student.email)}</span>
+            </div>
+            <div class="student-view-item">
+              <span class="student-view-label">Phone</span>
+              <span class="student-view-value">${student.phone ? AdminApp.escapeHtml(student.phone) : "Not provided"}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="student-view-section">
+          <h6 class="student-view-section-title">Additional Information</h6>
+          <div class="student-view-grid">
+            <div class="student-view-item">
+              <span class="student-view-label">Created Date</span>
+              <span class="student-view-value">${student.created_at ? AdminApp.escapeHtml(student.created_at.slice(0, 10)) : "N/A"}</span>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="student-view-section">
-      <h6 class="student-view-section-title">Academic Information</h6>
-      <div class="student-view-grid">
-        <div class="student-view-item">
-          <span class="student-view-label">Student Code</span>
-          <span class="student-view-value">${AdminApp.escapeHtml(student.student_code)}</span>
-        </div>
-        <div class="student-view-item">
-          <span class="student-view-label">Course</span>
-          <span class="student-view-value">${AdminApp.escapeHtml(courseName)}</span>
-        </div>
-      </div>
-    </div>
+      <div class="tab-pane fade" id="student-documents-pane" role="tabpanel" aria-labelledby="student-documents-tab" tabindex="0">
+        <div id="student-document-alert"></div>
+        ${currentUser?.role === "admin" ? `
+          <form id="student-document-form" class="form-section" data-student-id="${student.id}">
+            <h6 class="form-section-title">Upload Document</h6>
+            <div class="row g-3 align-items-end">
+              <div class="col-md-4">
+                <label for="student-document-type" class="form-label">Type</label>
+                <select id="student-document-type" class="form-select" required>
+                  ${documentTypes.map(([value, label]) => `
+                    <option value="${value}">${AdminApp.escapeHtml(label)}</option>
+                  `).join("")}
+                </select>
+              </div>
+              <div class="col-md-5">
+                <label for="student-document-file" class="form-label">File</label>
+                <input id="student-document-file" class="form-control" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required>
+              </div>
+              <div class="col-md-3">
+                <button id="upload-student-document" class="btn btn-primary w-100" type="submit">
+                  <i class="bi bi-upload"></i>
+                  Upload
+                </button>
+              </div>
+            </div>
+          </form>
+        ` : ""}
 
-    <div class="student-view-section">
-      <h6 class="student-view-section-title">Contact Information</h6>
-      <div class="student-view-grid">
-        <div class="student-view-item">
-          <span class="student-view-label">Email</span>
-          <span class="student-view-value">${AdminApp.escapeHtml(student.email)}</span>
-        </div>
-        <div class="student-view-item">
-          <span class="student-view-label">Phone</span>
-          <span class="student-view-value">${student.phone ? AdminApp.escapeHtml(student.phone) : "Not provided"}</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="student-view-section">
-      <h6 class="student-view-section-title">Additional Information</h6>
-      <div class="student-view-grid">
-        <div class="student-view-item">
-          <span class="student-view-label">Created Date</span>
-          <span class="student-view-value">${student.created_at ? AdminApp.escapeHtml(student.created_at.slice(0, 10)) : "N/A"}</span>
+        <div class="table-responsive">
+          <table class="table align-middle table-hover">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Filename</th>
+                <th>Uploaded</th>
+                <th>Uploaded By</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="student-documents-body">
+              <tr>
+                <td colspan="5" class="text-center text-muted py-4">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   `;
 
-  AdminApp.clearAlert("#student-view-alert");
   studentViewModal.show();
+  await loadStudentDocuments(student.id);
+}
+
+async function loadStudentDocuments(studentId) {
+  const tableBody = document.querySelector("#student-documents-body");
+  if (!tableBody) {
+    return;
+  }
+
+  tableBody.innerHTML = `
+    <tr>
+      <td colspan="5" class="text-center text-muted py-4">Loading...</td>
+    </tr>
+  `;
+
+  try {
+    const documents = await AdminApp.authFetch(`/students/${studentId}/documents`);
+    renderStudentDocuments(studentId, documents);
+  } catch (error) {
+    AdminApp.showAlert("#student-document-alert", error.message, "danger");
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="5" class="text-center text-muted py-4">Unable to load documents.</td>
+      </tr>
+    `;
+  }
+}
+
+function renderStudentDocuments(studentId, documents) {
+  const tableBody = document.querySelector("#student-documents-body");
+  if (!tableBody) {
+    return;
+  }
+
+  if (!documents.length) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="5" class="text-center text-muted py-4">No documents uploaded.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  tableBody.innerHTML = documents.map((documentItem) => {
+    const adminDelete = currentUser?.role === "admin"
+      ? `
+          <button class="btn btn-sm btn-outline-danger btn-icon" type="button" data-doc-action="delete" data-student-id="${studentId}" data-doc-id="${documentItem.id}" aria-label="Delete document">
+            <i class="bi bi-trash"></i>
+          </button>
+        `
+      : "";
+
+    return `
+      <tr>
+        <td>${AdminApp.escapeHtml(formatDocumentType(documentItem.document_type))}</td>
+        <td>
+          <div class="fw-semibold">${AdminApp.escapeHtml(documentItem.original_filename)}</div>
+          <div class="small muted-cell">${AdminApp.escapeHtml(formatFileSize(documentItem.file_size))}</div>
+        </td>
+        <td>${AdminApp.escapeHtml(AdminApp.formatDate(documentItem.uploaded_at))}</td>
+        <td>${AdminApp.escapeHtml(documentItem.uploaded_by_name || "")}</td>
+        <td class="text-end">
+          <span class="action-buttons">
+            <button class="btn btn-sm btn-action-view" type="button" data-doc-action="view" data-student-id="${studentId}" data-doc-id="${documentItem.id}">
+              <i class="bi bi-eye"></i> View
+            </button>
+            <button class="btn btn-sm btn-outline-primary" type="button" data-doc-action="download" data-student-id="${studentId}" data-doc-id="${documentItem.id}" data-filename="${AdminApp.escapeHtml(documentItem.original_filename)}">
+              <i class="bi bi-download"></i> Download
+            </button>
+            ${adminDelete}
+          </span>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+async function handleDocumentUpload(event) {
+  const form = event.target.closest("#student-document-form");
+  if (!form) {
+    return;
+  }
+
+  event.preventDefault();
+  const studentId = form.dataset.studentId;
+  const uploadButton = form.querySelector("#upload-student-document");
+  const typeInput = form.querySelector("#student-document-type");
+  const fileInput = form.querySelector("#student-document-file");
+  const file = fileInput.files[0];
+
+  AdminApp.clearAlert("#student-document-alert");
+  if (!file) {
+    AdminApp.showAlert("#student-document-alert", "Choose a document file to upload.", "danger");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("document_type", typeInput.value);
+  formData.append("file", file);
+
+  AdminApp.setButtonLoading(uploadButton, true, "Uploading...");
+  try {
+    await AdminApp.uploadAuthenticatedFile(`/students/${studentId}/documents`, formData);
+    form.reset();
+    AdminApp.showToast("success", "Document uploaded successfully.");
+    await loadStudentDocuments(Number(studentId));
+  } catch (error) {
+    AdminApp.showAlert("#student-document-alert", error.message, "danger");
+  } finally {
+    AdminApp.setButtonLoading(uploadButton, false);
+  }
+}
+
+async function handleStudentViewAction(event) {
+  const button = event.target.closest("button[data-doc-action]");
+  if (!button) {
+    return;
+  }
+
+  const studentId = Number(button.dataset.studentId);
+  const documentId = Number(button.dataset.docId);
+  const action = button.dataset.docAction;
+
+  try {
+    if (action === "view") {
+      await AdminApp.openAuthenticatedFile(`/students/${studentId}/documents/${documentId}/view`);
+      return;
+    }
+
+    if (action === "download") {
+      await AdminApp.downloadAuthenticatedFile(
+        `/students/${studentId}/documents/${documentId}/download`,
+        button.dataset.filename || "document",
+      );
+      return;
+    }
+
+    if (action === "delete") {
+      const confirmed = await AdminApp.confirmAction({
+        title: "Delete Document",
+        message: "Delete this student document?",
+        confirmLabel: "Delete",
+        cancelLabel: "Cancel",
+        danger: true,
+      });
+      if (!confirmed) {
+        return;
+      }
+
+      button.disabled = true;
+      await AdminApp.authFetch(`/students/${studentId}/documents/${documentId}`, {
+        method: "DELETE",
+      });
+      AdminApp.showToast("success", "Document deleted successfully.");
+      await loadStudentDocuments(studentId);
+    }
+  } catch (error) {
+    AdminApp.showAlert("#student-document-alert", error.message, "danger");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function formatDocumentType(value) {
+  const match = documentTypes.find(([type]) => type === value);
+  return match ? match[1] : value;
+}
+
+function formatFileSize(value) {
+  const bytes = Number(value || 0);
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 async function showStudentFees(studentId) {

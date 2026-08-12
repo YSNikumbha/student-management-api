@@ -12,7 +12,9 @@ if TYPE_CHECKING:
     from app.models.audit_log import AuditLog
     from app.models.attendance import Attendance
     from app.models.attendance_session import AttendanceSession
+    from app.models.notification import Notification
     from app.models.payment import Payment
+    from app.models.student_document import StudentDocument
     from app.models.student_fee import StudentFee
 
 
@@ -45,6 +47,14 @@ class User(Base):
         back_populates="recorder",
         passive_deletes=True,
     )
+    student_documents_uploaded: Mapped[list[StudentDocument]] = relationship(
+        back_populates="uploader",
+        passive_deletes=True,
+    )
     attendances_marked: Mapped[list[Attendance]] = relationship(back_populates="marked_by_user")
     attendance_sessions: Mapped[list[AttendanceSession]] = relationship(back_populates="created_by_user")
     audit_logs: Mapped[list[AuditLog]] = relationship(back_populates="user")
+    notifications: Mapped[list[Notification]] = relationship(
+        back_populates="user",
+        passive_deletes=True,
+    )

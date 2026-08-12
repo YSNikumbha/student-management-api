@@ -7,7 +7,7 @@ from app.dependencies.auth import require_admin
 from app.models.user import User
 from app.schemas.pagination import PaginatedResponse, build_paginated_response
 from app.schemas.user import PasswordResetRequest, UserCreate, UserResponse, UserUpdate
-from app.services import audit_service, user_service
+from app.services import audit_service, notification_service, user_service
 
 
 router = APIRouter(
@@ -87,6 +87,7 @@ def create_user(
         metadata_json={"email": user.email, "role": user.role},
         ip_address=audit_service.get_request_ip(request),
     )
+    notification_service.notify_account_created(db, user)
     return user
 
 
@@ -236,4 +237,5 @@ def reset_user_password(
         description=f"User {updated_user.email} password reset",
         ip_address=audit_service.get_request_ip(request),
     )
+    notification_service.notify_password_reset(db, updated_user)
     return updated_user
