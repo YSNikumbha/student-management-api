@@ -85,7 +85,7 @@ def mark_attendance_ui(
         )
     except ValueError as error:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(error),
         ) from error
 
@@ -113,7 +113,7 @@ def get_reports_ui(
     _validate_fee_category(db, category_id)
     if top_n not in {5, 10, 20}:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="top_n must be one of 5, 10, or 20",
         )
     return frontend_service.get_reports_ui(

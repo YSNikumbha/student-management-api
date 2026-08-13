@@ -77,7 +77,7 @@ def create_user(
         user = user_service.create_user(db, user_data)
     except ValueError as error:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(error),
         ) from error
     except IntegrityError as error:
@@ -154,7 +154,7 @@ def update_user(
     except ValueError as error:
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(error),
         ) from error
     except IntegrityError as error:

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
-from app.dependencies.auth import get_current_user, require_admin
+from app.dependencies.auth import get_current_user, require_permission
 from app.models.user import User
 from app.schemas.settings import (
     ChangePasswordRequest,
@@ -22,7 +22,7 @@ router = APIRouter(
 @router.get("/system", response_model=SystemSettingResponse)
 def get_system_settings(
     db: Session = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(require_permission("settings.view")),
 ):
     return settings_service.get_or_create_system_settings(db)
 
@@ -31,7 +31,7 @@ def get_system_settings(
 def update_system_settings(
     settings_data: SystemSettingUpdate,
     db: Session = Depends(get_db),
-    _current_user: User = Depends(require_admin),
+    _current_user: User = Depends(require_permission("settings.edit")),
 ):
     return settings_service.update_system_settings(db, settings_data)
 

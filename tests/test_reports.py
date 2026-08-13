@@ -354,7 +354,7 @@ def test_date_range_validation(client: TestClient, admin_token):
         "/reports/attendance?start_date=2024-01-10&end_date=2024-01-09",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 @pytest.mark.parametrize(
@@ -391,7 +391,7 @@ def test_invalid_report_filters(client: TestClient, admin_token, query, detail):
         f"/reports/attendance?{query}",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_invalid_class_and_student_filters(client: TestClient, admin_token, test_data, test_db):
@@ -399,13 +399,13 @@ def test_invalid_class_and_student_filters(client: TestClient, admin_token, test
         "/reports/attendance?class_id=999999",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     response = client.get(
         "/reports/attendance?student_id=999999",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     from app.models.batch import Batch
 

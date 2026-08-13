@@ -1,6 +1,10 @@
 """Tests for role-based permissions and protected routes."""
 
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
+
+from app.core.security import hash_password
+from app.models.user import User
 
 
 def test_get_students_without_auth(client: TestClient) -> None:
@@ -217,5 +221,49 @@ def test_staff_cannot_delete_fee(client: TestClient, staff_headers: dict, test_f
     response = client.delete(
         f"/fees/{test_fee.id}",
         headers=staff_headers,
+    )
+    assert response.status_code == 403
+
+
+def test_staff_can_view_but_not_edit_system_settings(
+    client: TestClient,
+    staff_headers: dict,
+) -> None:
+    """Test settings view/edit permissions are enforced by the backend."""
+    read_response = client.get("/settings/system", headers=staff_headers)
+    assert read_response.status_code == 200
+
+    update_response = client.put(
+        "/settings/system",
+        headers=staff_headers,
+        json={"school_name": "Updated Test School"},
+    )
+    assert update_response.status_code == 403
+
+
+def test_teacher_cannot_view_system_settings_without_permission(
+    client: TestClient,
+    db: Session,
+) -> None:
+    """Test users without settings.view cannot read system settings."""
+    teacher = User(
+        name="Settings Teacher",
+        email="settings.teacher@test.com",
+        hashed_password=hash_password("TestPassword123!"),
+        role="teacher",
+        is_active=True,
+    )
+    db.add(teacher)
+    db.commit()
+
+    login_response = client.post(
+        "/auth/login",
+        json={"email": teacher.email, "password": "TestPassword123!"},
+    )
+    assert login_response.status_code == 200
+
+    response = client.get(
+        "/settings/system",
+        headers={"Authorization": f"Bearer {login_response.json()['access_token']}"},
     )
     assert response.status_code == 403

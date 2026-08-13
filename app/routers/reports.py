@@ -26,12 +26,12 @@ router = APIRouter(
 def _validate_date_range(start_date: date | None, end_date: date | None) -> None:
     if start_date is not None and end_date is not None and start_date > end_date:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="start_date must be before end_date",
         )
 
 
-def _reject(message: str, *, status_code: int = status.HTTP_422_UNPROCESSABLE_ENTITY) -> None:
+def _reject(message: str, *, status_code: int = status.HTTP_422_UNPROCESSABLE_CONTENT) -> None:
     raise HTTPException(status_code=status_code, detail=message)
 
 

@@ -1,5 +1,5 @@
 import os
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Generator
 
@@ -275,3 +275,96 @@ def test_fee(test_db, test_student, admin_user) -> StudentFee:
     test_db.commit()
     test_db.refresh(fee)
     return fee
+
+
+@pytest.fixture(scope="function")
+def attendance_session_context(test_db, test_course, admin_user) -> dict[str, object]:
+    """Create a complete attendance-session graph with one marked student."""
+    academic_year = AcademicYear(
+        name="Attendance Test 2026-27",
+        start_date=date(2026, 6, 1),
+        end_date=date(2027, 5, 31),
+        is_active=True,
+    )
+    test_db.add(academic_year)
+    test_db.flush()
+
+    semester = Semester(
+        academic_year_id=academic_year.id,
+        course_id=test_course.id,
+        number=1,
+        name="Attendance Test Semester",
+        start_date=date(2026, 6, 1),
+        end_date=date(2026, 12, 31),
+        is_active=True,
+    )
+    test_db.add(semester)
+    test_db.flush()
+
+    batch = Batch(
+        name="ATT-2026-A",
+        course_id=test_course.id,
+        academic_year_id=academic_year.id,
+        semester_id=semester.id,
+        capacity=60,
+        is_active=True,
+    )
+    subject = Subject(
+        course_id=test_course.id,
+        semester_id=semester.id,
+        code="ATT101",
+        name="Attendance Test Subject",
+        is_active=True,
+    )
+    test_db.add_all([batch, subject])
+    test_db.flush()
+
+    student = Student(
+        student_code="ATT-STU-001",
+        first_name="Aarav",
+        last_name="Sharma",
+        email="attendance.student@test.com",
+        course_id=test_course.id,
+        academic_year_id=academic_year.id,
+        semester_id=semester.id,
+        batch_id=batch.id,
+        status="active",
+    )
+    test_db.add(student)
+    test_db.flush()
+
+    session_date = datetime(2026, 8, 12, 9, 0, 0)
+    attendance_session = AttendanceSession(
+        course_id=test_course.id,
+        batch_id=batch.id,
+        semester_id=semester.id,
+        subject_id=subject.id,
+        date=session_date,
+        session_name="Attendance Test Lecture",
+        created_by=admin_user.id,
+    )
+    test_db.add(attendance_session)
+    test_db.flush()
+
+    attendance = Attendance(
+        attendance_session_id=attendance_session.id,
+        student_id=student.id,
+        date=session_date.date(),
+        status="present",
+        marked_by=admin_user.id,
+    )
+    test_db.add(attendance)
+    test_db.commit()
+
+    for entity in (academic_year, semester, batch, subject, student, attendance_session, attendance):
+        test_db.refresh(entity)
+
+    return {
+        "academic_year": academic_year,
+        "semester": semester,
+        "batch": batch,
+        "subject": subject,
+        "student": student,
+        "session": attendance_session,
+        "attendance": attendance,
+    }

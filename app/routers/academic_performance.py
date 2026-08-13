@@ -75,7 +75,7 @@ def bulk_upsert_results(
         )
     except ValueError as error:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
 
 
 @router.get("/students/{student_id}/summary", response_model=StudentAcademicSummaryResponse)

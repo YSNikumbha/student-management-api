@@ -12,9 +12,11 @@ The admin frontend is organized around these primary modules:
 - Attendance
 - Fee Management
 - Reports
+- User Management
+- Roles & Permissions
 - Settings
 
-Backend domain concepts such as courses, academic years, semesters, batches, fee structures, user management, notifications, audit logs, and academic performance are integrated into those modules.
+Backend domain concepts such as courses, academic years, semesters, batches, fee structures, notifications, audit logs, and academic performance are integrated into those modules.
 
 ## Tech Stack
 
@@ -69,12 +71,19 @@ ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
 ENVIRONMENT=development
 APP_NAME=Student Management API
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```
 
 For PostgreSQL:
 
 ```text
 DATABASE_URL=postgresql+psycopg://user:password@host:5432/database
+```
+
+For `ENVIRONMENT=production`, `SECRET_KEY` must be a long, random value and must not be blank or a placeholder. Generate one with:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(64))"
 ```
 
 The React frontend reads `VITE_API_BASE_URL` during local Vite development. If it is not set, it defaults to `http://127.0.0.1:8000`.
@@ -123,9 +132,17 @@ FastAPI serves the built SPA from `frontend/dist` for:
 - `/admin/attendance`
 - `/admin/fees`
 - `/admin/reports`
+- `/admin/users`
+- `/admin/roles-permissions`
 - `/admin/settings`
 
 API routes such as `/docs`, `/openapi.json`, and `/auth/*` remain backend routes.
+
+Health endpoints:
+
+- `/health`: backward-compatible basic health response
+- `/health/live`: process liveness
+- `/health/ready`: database readiness using a lightweight SQL query
 
 ## Database Migrations
 
@@ -180,16 +197,52 @@ Run locally with PostgreSQL:
 docker compose up --build
 ```
 
-The Dockerfile builds the React frontend in a Node stage, then copies `frontend/dist` into the Python runtime image.
+The Dockerfile builds the React frontend in a Node stage, copies `frontend/dist` into the Python runtime image, runs `alembic upgrade head` at container startup, and then starts Uvicorn on `0.0.0.0:${PORT:-8000}`. If migrations fail, the container exits.
 
 ## Production Notes
 
-- Use PostgreSQL for production.
-- Set a strong `SECRET_KEY`.
-- Run `alembic upgrade head` before starting the application.
-- Create the first admin user with `scripts/create_admin.py`.
-- Keep `.env`, local databases, backup databases, `node_modules`, `frontend/dist`, and temporary output files out of Git.
-- Financial records are protected by backend business rules; avoid hard deletion where payment history exists.
+Fresh deployment commands:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+alembic upgrade head
+pytest -v
+cd frontend
+npm ci
+npm run build
+```
+
+Production environment example:
+
+```text
+ENVIRONMENT=production
+DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:5432/student_management
+SECRET_KEY=GENERATE_A_LONG_RANDOM_SECRET
+CORS_ORIGINS=https://your-domain.example
+```
+
+Migration checks:
+
+```bash
+alembic current
+alembic upgrade head
+```
+
+Create the first admin user with `python scripts/create_admin.py`. Keep `.env`, local databases, backup databases, `node_modules`, `frontend/dist`, and temporary output files out of Git. Financial records are protected by backend business rules; avoid hard deletion where payment history exists.
+
+## Deployment Verification
+
+- Production environment variables configured
+- PostgreSQL reachable
+- Alembic migrations applied
+- Backend tests passing
+- Frontend build passing
+- Strong `SECRET_KEY` configured
+- HTTPS enabled at hosting/reverse proxy
+- Database backups enabled
+- `.env` and local database files not committed
 
 ## Current Functional Areas
 
@@ -199,5 +252,7 @@ The Dockerfile builds the React frontend in a Node stage, then copies `frontend/
 - Attendance sessions with subject-wise attendance and bulk marking
 - Fee structures, installments, payments, invoices, and receipts
 - Reports with preview, CSV export, and PDF export
-- Settings for system profile, academic years, fee structures, notifications, security, users, and audit/admin tools
+- User Management with user search, role assignment, deactivation, and password reset
+- Roles & Permissions with persisted roles and permission matrix
+- Settings for system profile, academic years, fee structures, notifications, security, and audit/admin tools
 - Global search and notification APIs connected to the React top bar

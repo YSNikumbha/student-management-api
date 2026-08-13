@@ -32,7 +32,7 @@ def get_audit_logs(
 ) -> dict:
     if start_date is not None and end_date is not None and start_date > end_date:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="start_date must be before end_date",
         )
 

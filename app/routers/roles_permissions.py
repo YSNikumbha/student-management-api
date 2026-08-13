@@ -76,7 +76,7 @@ def create_role(
     try:
         role = role_permission_service.create_role(db, role_data)
     except ValueError as error:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
     except IntegrityError as error:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Role could not be created") from error
@@ -117,7 +117,7 @@ def update_role(
         updated_role = role_permission_service.update_role(db, role, role_data)
     except ValueError as error:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
     except IntegrityError as error:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Role could not be updated") from error
@@ -147,7 +147,7 @@ def deactivate_role(
         updated_role = role_permission_service.update_role(db, role, RoleUpdate(is_active=False))
     except ValueError as error:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
     audit_service.record_audit_event(
         db,
         user_id=current_user.id,
@@ -196,7 +196,7 @@ def update_role_permissions(
         updated_role = role_permission_service.set_role_permissions(db, role, permission_data)
     except ValueError as error:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
     after = role_permission_service.permission_codes_for_role(updated_role)
     audit_service.record_audit_event(
         db,

@@ -2,6 +2,7 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+from sqlalchemy import text
 
 from alembic import context
 from app.database.base import Base
@@ -82,6 +83,25 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        if connection.dialect.name == "postgresql":
+            # One historical revision id is longer than Alembic's default
+            # VARCHAR(32) version column. PostgreSQL enforces that limit, so
+            # create/expand the version table in its own committed transaction
+            # before Alembic starts the migration transaction.
+            with connection.begin():
+                connection.execute(
+                    text(
+                        """
+                        CREATE TABLE IF NOT EXISTS alembic_version (
+                            version_num VARCHAR(255) NOT NULL,
+                            CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+                        )
+                        """
+                    )
+                )
+                connection.execute(
+                    text("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(255)")
+                )
         context.configure(
             connection=connection,
             target_metadata=target_metadata,

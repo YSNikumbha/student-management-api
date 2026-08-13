@@ -1,6 +1,5 @@
 from datetime import date, datetime
 
-import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -208,32 +207,45 @@ class TestAttendanceSessions:
         )
         assert response.status_code == status.HTTP_201_CREATED
 
-    def test_get_student_summary(self, db: Session, admin_token: str):
-        student = db.query(Student).first()
-        if not student:
-            pytest.skip("No students available")
-
+    def test_get_student_summary(
+        self,
+        client: TestClient,
+        attendance_session_context: dict[str, object],
+        admin_token: str,
+    ):
+        student = attendance_session_context["student"]
         response = client.get(
-            f"/attendance/student/{student.id}/summary",
+            f"/attendance/sessions/student/{student.id}/summary",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert "total_sessions" in data
-        assert "attendance_percentage" in data
+        assert data["student_id"] == student.id
+        assert data["total_sessions"] == 1
+        assert data["present"] == 1
+        assert data["attendance_percentage"] == 100
 
-    def test_get_student_subject_summary(self, db: Session, admin_token: str):
-        student = db.query(Student).first()
-        if not student:
-            pytest.skip("No students available")
-
+    def test_get_student_subject_summary(
+        self,
+        client: TestClient,
+        attendance_session_context: dict[str, object],
+        admin_token: str,
+    ):
+        student = attendance_session_context["student"]
+        subject = attendance_session_context["subject"]
         response = client.get(
-            f"/attendance/student/{student.id}/subject-summary",
+            f"/attendance/sessions/student/{student.id}/subject-summary",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert "subjects" in data
+        assert data["student_id"] == student.id
+        assert data["subjects"]
+        subject_summary = data["subjects"][0]
+        assert subject_summary["subject_id"] == subject.id
+        assert subject_summary["total_sessions"] == 1
+        assert subject_summary["present"] == 1
+        assert subject_summary["attendance_percentage"] == 100
 
     def test_delete_session(
         self,
