@@ -28,6 +28,8 @@ function Card({ title, subtitle, children }: { title: string; subtitle?: string;
 
 type ReportTab = "academic" | "attendance" | "finance" | "toppers";
 
+const ALLOWED_TOP_N = new Set([5, 10, 20]);
+
 function inputStyle(): React.CSSProperties {
   return {
     background: "var(--secondary)",
@@ -52,7 +54,7 @@ function readInitialFilters(): ReportFilters {
     const value = params.get(key);
     return value ? Number(value) : "";
   };
-  return {
+  return normalizeReportFilters({
     period: (params.get("period") as ReportPeriod | null) || "monthly",
     date: params.get("date") || "",
     month: numberValue("month") || new Date().getMonth() + 1,
@@ -66,12 +68,76 @@ function readInitialFilters(): ReportFilters {
     attendance_status: (params.get("attendance_status") as never) || "",
     fee_status: (params.get("fee_status") as never) || "",
     top_n: (numberValue("top_n") || 10) as 5 | 10 | 20,
+  });
+}
+
+function localDateValue(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function monthStartValue(date = new Date()): string {
+  return localDateValue(new Date(date.getFullYear(), date.getMonth(), 1));
+}
+
+function normalizeReportFilters(filters: ReportFilters): ReportFilters {
+  const now = new Date();
+  const period = filters.period || "monthly";
+  const topN = Number(filters.top_n || 10);
+  const normalized: ReportFilters = {
+    ...filters,
+    period,
+    top_n: (ALLOWED_TOP_N.has(topN) ? topN : 10) as 5 | 10 | 20,
+  };
+
+  if (period === "daily") {
+    return {
+      ...normalized,
+      date: normalized.date || localDateValue(now),
+      month: "",
+      year: "",
+      from_date: "",
+      to_date: "",
+    };
+  }
+
+  if (period === "monthly") {
+    return {
+      ...normalized,
+      date: "",
+      month: normalized.month || now.getMonth() + 1,
+      year: normalized.year || now.getFullYear(),
+      from_date: "",
+      to_date: "",
+    };
+  }
+
+  if (period === "yearly") {
+    return {
+      ...normalized,
+      date: "",
+      month: "",
+      year: normalized.year || now.getFullYear(),
+      from_date: "",
+      to_date: "",
+    };
+  }
+
+  return {
+    ...normalized,
+    date: "",
+    month: "",
+    year: "",
+    from_date: normalized.from_date || monthStartValue(now),
+    to_date: normalized.to_date || localDateValue(now),
   };
 }
 
 function queryFrom(tab: ReportTab, filters: ReportFilters): string {
   const params = new URLSearchParams({ tab });
-  Object.entries(filters).forEach(([key, value]) => {
+  Object.entries(normalizeReportFilters(filters)).forEach(([key, value]) => {
     if (value !== undefined && value !== "") params.set(key, String(value));
   });
   return params.toString();
@@ -89,7 +155,7 @@ function ExportButtons({ kind, filters }: { kind: "academic" | "attendance" | "f
   async function download(format: "csv" | "pdf") {
     setError("");
     try {
-      await downloadReport(kind, format, filters);
+      await downloadReport(kind, format, normalizeReportFilters(filters));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Download failed");
     }
@@ -111,11 +177,13 @@ export default function Reports() {
   const [error, setError] = useState("");
 
   async function load(nextFilters = filters, nextTab = activeTab) {
+    const safeFilters = normalizeReportFilters(nextFilters);
     setLoading(true);
     setError("");
     try {
-      setData(await getReportsData(nextFilters));
-      window.history.replaceState(null, "", `/admin/reports?${queryFrom(nextTab, nextFilters)}`);
+      setData(await getReportsData(safeFilters));
+      setFilters(safeFilters);
+      window.history.replaceState(null, "", `/admin/reports?${queryFrom(nextTab, safeFilters)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Reports could not load");
     } finally {
@@ -128,7 +196,7 @@ export default function Reports() {
   }, []);
 
   function updatePeriod(period: ReportPeriod) {
-    setFilters((current) => ({
+    setFilters((current) => normalizeReportFilters({
       ...current,
       period,
       date: "",
@@ -140,7 +208,9 @@ export default function Reports() {
   }
 
   function generate() {
-    load(filters, activeTab);
+    const safeFilters = normalizeReportFilters(filters);
+    setFilters(safeFilters);
+    load(safeFilters, activeTab);
   }
 
   function resetFilters() {
@@ -170,7 +240,7 @@ export default function Reports() {
             ["finance", "Financial Report"],
             ["toppers", "Top Performers"],
           ] as const).map(([tab, label], i, arr) => (
-            <button key={tab} onClick={() => { setActiveTab(tab); window.history.replaceState(null, "", `/admin/reports?${queryFrom(tab, filters)}`); }} style={{ padding: "9px 22px", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, background: activeTab === tab ? "rgba(99,102,241,0.15)" : "transparent", color: activeTab === tab ? "#818CF8" : "var(--muted-foreground)", fontFamily: "inherit", borderRight: i < arr.length - 1 ? "1px solid var(--border)" : "none", transition: "all 0.15s" }}>{label}</button>
+            <button key={tab} onClick={() => { const safeFilters = normalizeReportFilters(filters); setActiveTab(tab); setFilters(safeFilters); window.history.replaceState(null, "", `/admin/reports?${queryFrom(tab, safeFilters)}`); }} style={{ padding: "9px 22px", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, background: activeTab === tab ? "rgba(99,102,241,0.15)" : "transparent", color: activeTab === tab ? "#818CF8" : "var(--muted-foreground)", fontFamily: "inherit", borderRight: i < arr.length - 1 ? "1px solid var(--border)" : "none", transition: "all 0.15s" }}>{label}</button>
           ))}
         </div>
         <ExportButtons kind={exportKind(activeTab)} filters={filters} />
