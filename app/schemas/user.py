@@ -1,14 +1,5 @@
 from datetime import datetime
-from enum import Enum
-
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
-
-
-class UserRole(str, Enum):
-    admin = "admin"
-    teacher = "teacher"
-    accountant = "accountant"
-    staff = "staff"
 
 
 def _validate_name(value: str) -> str:
@@ -34,9 +25,9 @@ class UserCreate(BaseModel):
     name: str = Field(min_length=2, max_length=150)
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
-    role: UserRole = UserRole.teacher
-
-    model_config = ConfigDict(use_enum_values=True)
+    role: str = Field(default="teacher", min_length=2, max_length=50)
+    role_id: int | None = None
+    is_active: bool = True
 
     @field_validator("name")
     @classmethod
@@ -53,14 +44,18 @@ class UserCreate(BaseModel):
     def normalize_email(cls, value: EmailStr) -> str:
         return str(value).lower()
 
+    @field_validator("role")
+    @classmethod
+    def normalize_role(cls, value: str) -> str:
+        return value.strip().lower().replace(" ", "_").replace("-", "_")
+
 
 class UserUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=150)
     email: EmailStr | None = None
-    role: UserRole | None = None
+    role: str | None = Field(default=None, min_length=2, max_length=50)
+    role_id: int | None = None
     is_active: bool | None = None
-
-    model_config = ConfigDict(use_enum_values=True)
 
     @field_validator("name")
     @classmethod
@@ -75,6 +70,13 @@ class UserUpdate(BaseModel):
         if value is None:
             return None
         return str(value).lower()
+
+    @field_validator("role")
+    @classmethod
+    def normalize_optional_role(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip().lower().replace(" ", "_").replace("-", "_")
 
 
 class PasswordResetRequest(BaseModel):
@@ -91,6 +93,9 @@ class UserResponse(BaseModel):
     name: str
     email: EmailStr
     role: str
+    role_id: int | None = None
+    role_display_name: str | None = None
+    permissions: list[str] = Field(default_factory=list)
     is_active: bool
     created_at: datetime
     last_login_at: datetime | None = None

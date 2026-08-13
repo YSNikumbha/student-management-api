@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, verify_password
 from app.models.user import User
-from app.schemas.user import UserCreate, UserUpdate
+from app.schemas.user import UserCreate, UserResponse, UserUpdate
+from app.services import role_permission_service
 
 
 def get_user_by_id(db: Session, user_id: int) -> User | None:
@@ -17,6 +18,23 @@ def get_user_by_email(db: Session, email: str) -> User | None:
     normalized_email = email.strip().lower()
     statement = select(User).where(func.lower(User.email) == normalized_email)
     return db.execute(statement).scalar_one_or_none()
+
+
+def build_user_response(db: Session, user: User) -> UserResponse:
+    role = role_permission_service.get_role(db, user.role_id) if user.role_id else None
+    permissions = sorted(role_permission_service.permissions_for_user(db, user))
+    return UserResponse(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        role=user.role,
+        role_id=user.role_id,
+        role_display_name=role.display_name if role else user.role.replace("_", " ").title(),
+        permissions=permissions,
+        is_active=user.is_active,
+        created_at=user.created_at,
+        last_login_at=user.last_login_at,
+    )
 
 
 def get_users_paginated(
@@ -61,7 +79,7 @@ def get_users_paginated(
 
 
 def _role_value(role: object) -> str:
-    return str(getattr(role, "value", role))
+    return str(getattr(role, "value", role)).strip().lower().replace(" ", "_").replace("-", "_")
 
 
 def create_user(db: Session, user_data: UserCreate) -> User:
@@ -70,6 +88,13 @@ def create_user(db: Session, user_data: UserCreate) -> User:
         email=str(user_data.email).lower(),
         hashed_password=hash_password(user_data.password),
         role=_role_value(user_data.role),
+        is_active=user_data.is_active,
+    )
+    role_permission_service.assign_role_to_user(
+        db,
+        user,
+        role_id=user_data.role_id,
+        role_name=_role_value(user_data.role),
     )
     db.add(user)
     db.commit()
@@ -84,8 +109,16 @@ def update_user(db: Session, user: User, user_data: UserUpdate) -> User:
         user.name = update_data["name"].strip()
     if "email" in update_data and update_data["email"] is not None:
         user.email = str(update_data["email"]).lower()
-    if "role" in update_data and update_data["role"] is not None:
-        user.role = _role_value(update_data["role"])
+    if (
+        ("role_id" in update_data and update_data["role_id"] is not None)
+        or ("role" in update_data and update_data["role"] is not None)
+    ):
+        role_permission_service.assign_role_to_user(
+            db,
+            user,
+            role_id=update_data.get("role_id"),
+            role_name=_role_value(update_data["role"]) if update_data.get("role") else None,
+        )
     if "is_active" in update_data and update_data["is_active"] is not None:
         user.is_active = update_data["is_active"]
 

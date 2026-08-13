@@ -2,12 +2,13 @@ import type { ReactNode } from "react";
 import type { User } from "../types";
 import { initials, titleCase } from "../utils/format";
 
-export type Page = "dashboard" | "students" | "attendance" | "fees" | "reports" | "classes" | "settings";
+export type Page = "dashboard" | "students" | "classes" | "attendance" | "fees" | "reports" | "users" | "rolesPermissions" | "settings";
 
 type NavItem = {
   id: Page;
   label: string;
   icon: ReactNode;
+  permission?: string;
 };
 
 function Icon({ d, size = 18 }: { d: string; size?: number }) {
@@ -19,14 +20,22 @@ function Icon({ d, size = 18 }: { d: string; size?: number }) {
 }
 
 const navItems: NavItem[] = [
-  { id: "dashboard", label: "Dashboard", icon: <Icon d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10" /> },
-  { id: "students", label: "Students", icon: <Icon d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75" /> },
-  { id: "classes", label: "Classes", icon: <Icon d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /> },
-  { id: "attendance", label: "Attendance", icon: <Icon d="M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /> },
-  { id: "fees", label: "Fee Management", icon: <Icon d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /> },
-  { id: "reports", label: "Reports", icon: <Icon d="M18 20V10 M12 20V4 M6 20v-6" /> },
-  { id: "settings", label: "Settings", icon: <Icon d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /> },
+  { id: "dashboard", label: "Dashboard", permission: "dashboard.view", icon: <Icon d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10" /> },
+  { id: "students", label: "Students", permission: "students.view", icon: <Icon d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75" /> },
+  { id: "classes", label: "Classes", permission: "classes.view", icon: <Icon d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /> },
+  { id: "attendance", label: "Attendance", permission: "attendance.view", icon: <Icon d="M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /> },
+  { id: "fees", label: "Fee Management", permission: "fees.view", icon: <Icon d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /> },
+  { id: "reports", label: "Reports", permission: "reports.view", icon: <Icon d="M18 20V10 M12 20V4 M6 20v-6" /> },
+  { id: "users", label: "User Management", permission: "users.view", icon: <Icon d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M19 8v6 M22 11h-6" /> },
+  { id: "rolesPermissions", label: "Roles & Permissions", permission: "roles.view", icon: <Icon d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M9 12l2 2 4-4" /> },
+  { id: "settings", label: "Settings", permission: "settings.view", icon: <Icon d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /> },
 ];
+
+function hasPermission(user: User, permission?: string): boolean {
+  if (!permission) return true;
+  if (user.role === "admin" || user.role === "super_admin") return true;
+  return Boolean(user.permissions?.includes(permission));
+}
 
 type Props = {
   activePage: Page;
@@ -86,7 +95,7 @@ export default function Sidebar({ activePage, onNavigate, collapsed, user, onLog
             Main Menu
           </div>
         )}
-        {navItems.map((item) => {
+        {navItems.filter((item) => hasPermission(user, item.permission)).map((item) => {
           const active = activePage === item.id;
           return (
             <button

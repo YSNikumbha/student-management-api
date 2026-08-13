@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.security import decode_access_token
 from app.database.database import get_db
 from app.models.user import User
-from app.services import user_service
+from app.services import role_permission_service, user_service
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -68,6 +68,21 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
+def require_permission(permission_code: str):
+    def dependency(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> User:
+        if not role_permission_service.user_has_permission(db, current_user, permission_code):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission required: {permission_code}",
+            )
+        return current_user
+
+    return dependency
+
+
 def require_roles(*roles: str):
     allowed_roles = set(roles)
 
@@ -84,8 +99,13 @@ def require_roles(*roles: str):
 
 def require_attendance_editor(
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> User:
-    if current_user.role not in ATTENDANCE_EDITOR_ROLES:
+    if (
+        current_user.role not in ATTENDANCE_EDITOR_ROLES
+        and not role_permission_service.user_has_permission(db, current_user, "attendance.mark")
+        and not role_permission_service.user_has_permission(db, current_user, "attendance.edit")
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Attendance access required",
@@ -93,8 +113,15 @@ def require_attendance_editor(
     return current_user
 
 
-def require_fee_manager(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role not in FEE_MANAGER_ROLES:
+def require_fee_manager(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    if (
+        current_user.role not in FEE_MANAGER_ROLES
+        and not role_permission_service.user_has_permission(db, current_user, "fees.create")
+        and not role_permission_service.user_has_permission(db, current_user, "fees.edit")
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Fee management access required",
@@ -104,8 +131,12 @@ def require_fee_manager(current_user: User = Depends(get_current_user)) -> User:
 
 def require_payment_recorder(
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> User:
-    if current_user.role not in PAYMENT_RECORDER_ROLES:
+    if (
+        current_user.role not in PAYMENT_RECORDER_ROLES
+        and not role_permission_service.user_has_permission(db, current_user, "fees.record_payment")
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Payment access required",
@@ -115,8 +146,15 @@ def require_payment_recorder(
 
 def require_general_report_reader(
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> User:
-    if current_user.role not in GENERAL_REPORT_ROLES:
+    if (
+        current_user.role not in GENERAL_REPORT_ROLES
+        and (
+            current_user.role == ACCOUNTANT_ROLE
+            or not role_permission_service.user_has_permission(db, current_user, "reports.view")
+        )
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Report access required",
@@ -126,8 +164,12 @@ def require_general_report_reader(
 
 def require_fee_report_reader(
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> User:
-    if current_user.role not in FEE_REPORT_ROLES:
+    if (
+        current_user.role not in FEE_REPORT_ROLES
+        and not role_permission_service.user_has_permission(db, current_user, "reports.view")
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Fee report access required",

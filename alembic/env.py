@@ -16,6 +16,7 @@ from app.models.fee_category import FeeCategory  # noqa: F401
 from app.models.fee_installment import FeeInstallment  # noqa: F401
 from app.models.fee_structure import FeeStructure  # noqa: F401
 from app.models.payment import Payment  # noqa: F401
+from app.models.role_permission import Permission, Role, RolePermission  # noqa: F401
 from app.models.semester import Semester  # noqa: F401
 from app.models.student import Student  # noqa: F401
 from app.models.student_fee import StudentFee  # noqa: F401

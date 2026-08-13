@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
-from app.dependencies.auth import get_current_user, require_admin
+from app.dependencies.auth import require_permission
 from app.models.user import User
 from app.schemas.classroom import ClassCreate, ClassResponse, ClassUpdate
 from app.services import classroom_service
@@ -17,7 +17,7 @@ router = APIRouter(
 @router.get("", response_model=list[ClassResponse])
 def get_classes(
     db: Session = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(require_permission("classes.view")),
 ) -> list[ClassResponse]:
     return [
         classroom_service.build_class_response(db, batch)
@@ -29,7 +29,7 @@ def get_classes(
 def create_class(
     class_data: ClassCreate,
     db: Session = Depends(get_db),
-    _current_user: User = Depends(require_admin),
+    _current_user: User = Depends(require_permission("classes.create")),
 ) -> ClassResponse:
     try:
         batch = classroom_service.create_class(db, class_data)
@@ -47,7 +47,7 @@ def create_class(
 def get_class(
     class_id: int,
     db: Session = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(require_permission("classes.view")),
 ) -> ClassResponse:
     batch = classroom_service.get_class(db, class_id)
     if batch is None:
@@ -60,7 +60,7 @@ def update_class(
     class_id: int,
     class_data: ClassUpdate,
     db: Session = Depends(get_db),
-    _current_user: User = Depends(require_admin),
+    _current_user: User = Depends(require_permission("classes.edit")),
 ) -> ClassResponse:
     batch = classroom_service.get_class(db, class_id)
     if batch is None:
@@ -81,7 +81,7 @@ def update_class(
 def delete_class(
     class_id: int,
     db: Session = Depends(get_db),
-    _current_user: User = Depends(require_admin),
+    _current_user: User = Depends(require_permission("classes.delete")),
 ) -> Response:
     batch = classroom_service.get_class(db, class_id)
     if batch is None:

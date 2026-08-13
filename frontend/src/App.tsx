@@ -8,6 +8,8 @@ import Fees from "./components/Fees";
 import Reports from "./components/Reports";
 import Classes from "./components/Classes";
 import Settings from "./components/Settings";
+import UserManagement from "./components/UserManagement";
+import RolesPermissions from "./components/RolesPermissions";
 import { getMe, login, logout } from "./api/auth";
 import { ApiError, getStoredUser, getToken } from "./api/client";
 import type { User } from "./types";
@@ -19,6 +21,8 @@ const pagePath: Record<Page, string> = {
   attendance: "/admin/attendance",
   fees: "/admin/fees",
   reports: "/admin/reports",
+  users: "/admin/users",
+  rolesPermissions: "/admin/roles-permissions",
   settings: "/admin/settings",
 };
 
@@ -28,6 +32,8 @@ function pageFromPath(pathname: string): Page {
   if (pathname.includes("/attendance")) return "attendance";
   if (pathname.includes("/fees")) return "fees";
   if (pathname.includes("/reports")) return "reports";
+  if (pathname.includes("/roles-permissions")) return "rolesPermissions";
+  if (pathname.includes("/users")) return "users";
   if (pathname.includes("/settings")) return "settings";
   return "dashboard";
 }
@@ -224,6 +230,8 @@ export default function App() {
       case "attendance": return <Attendance currentUser={user} />;
       case "fees": return <Fees currentUser={user} />;
       case "reports": return <Reports />;
+      case "users": return <UserManagement currentUser={user} />;
+      case "rolesPermissions": return <RolesPermissions />;
       case "settings": return <Settings currentUser={user} />;
       default: return <Dashboard />;
     }

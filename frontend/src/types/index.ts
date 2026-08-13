@@ -5,6 +5,9 @@ export type User = {
   name: string;
   email: string;
   role: Role | string;
+  role_id?: number | null;
+  role_display_name?: string | null;
+  permissions?: string[];
   is_active: boolean;
   created_at: string;
   last_login_at?: string | null;
@@ -131,6 +134,24 @@ export type ChartMonth = {
   pending?: number;
 };
 
+export type ReportPeriod = "daily" | "monthly" | "yearly" | "custom";
+
+export type ReportFilters = {
+  period?: ReportPeriod | "";
+  date?: string;
+  month?: number | "";
+  year?: number | "";
+  from_date?: string;
+  to_date?: string;
+  class_id?: number | "";
+  student_id?: number | "";
+  subject_id?: number | "";
+  category_id?: number | "";
+  attendance_status?: AttendanceStatus | "";
+  fee_status?: FeeStatus | "";
+  top_n?: 5 | 10 | 20;
+};
+
 export type DashboardData = {
   kpis: {
     total_students: number;
@@ -247,10 +268,41 @@ export type ReportsData = {
       perfect_attendance: number;
       chronic_absentees: number;
       late_arrivals_avg: number;
+      present?: number;
+      absent?: number;
+      late?: number;
+      excused?: number;
     };
     monthly: ChartMonth[];
+    rows?: Array<{
+      date?: string | null;
+      student_id?: number;
+      student_code: string;
+      student_name: string;
+      course_name?: string | null;
+      status?: string;
+      total_marked_days?: number;
+      present_days?: number;
+      absent_days?: number;
+      late_days?: number;
+      excused_days?: number;
+      attendance_percentage?: number;
+    }>;
   };
-  finance: FeesData;
+  finance: FeesData & {
+    summary: FeesData["summary"] & {
+      paid_count?: number;
+      partial_count?: number;
+      overdue_count?: number;
+      date_basis?: string;
+    };
+  };
+  filter_options?: {
+    classes: ClassRoom[];
+    students: Array<{ id: number; name: string; student_code: string; class_id?: number | null }>;
+    subjects: Array<{ id: number; name: string; code: string; course_id: number; semester_id: number }>;
+    fee_categories: Array<{ id: number; name: string; is_active: boolean }>;
+  };
 };
 
 export type SystemSettings = {
@@ -331,8 +383,37 @@ export type FeeStructure = {
 export type UserFormInput = {
   name: string;
   email: string;
-  role: Role;
+  role: Role | string;
+  role_id?: number | null;
   password?: string;
+  is_active?: boolean;
+};
+
+export type Permission = {
+  id: number;
+  code: string;
+  name: string;
+  description?: string | null;
+  module: string;
+  created_at: string;
+};
+
+export type RoleRecord = {
+  id: number;
+  name: string;
+  display_name: string;
+  description?: string | null;
+  is_system: boolean;
+  is_active: boolean;
+  user_count: number;
+  permission_codes: string[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type RolesPermissionsData = {
+  roles: RoleRecord[];
+  permissions: Permission[];
 };
 
 export type SearchResult = {

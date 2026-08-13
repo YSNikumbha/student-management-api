@@ -19,6 +19,7 @@ from app.routers.frontend_ui import router as frontend_ui_router
 from app.routers.notifications import router as notifications_router
 from app.routers.payments import router as payments_router
 from app.routers.reports import router as reports_router
+from app.routers.roles_permissions import router as roles_permissions_router
 from app.routers.search import router as search_router
 from app.routers.semesters import router as semesters_router
 from app.routers.settings import router as settings_router
@@ -57,6 +58,7 @@ app.include_router(attendance_router)
 app.include_router(fees_router)
 app.include_router(payments_router)
 app.include_router(reports_router)
+app.include_router(roles_permissions_router)
 app.include_router(dashboard_router)
 app.include_router(users_router)
 app.include_router(audit_logs_router)

@@ -22,6 +22,7 @@ def create_test_data(db: Session):
     from app.models.semester import Semester
     from app.models.batch import Batch
     from app.models.attendance_session import AttendanceSession
+    from app.models.academic_performance import Assessment, StudentResult
     from app.schemas.academic_year import AcademicYearCreate
     from app.schemas.semester import SemesterCreate
     from app.schemas.batch import BatchCreate
@@ -128,6 +129,13 @@ def create_test_data(db: Session):
         ),
     )
     db.commit()
+    student1.batch_id = batch.id
+    student1.academic_year_id = academic_year.id
+    student1.semester_id = semester.id
+    student2.batch_id = batch.id
+    student2.academic_year_id = academic_year.id
+    student2.semester_id = semester.id
+    db.commit()
     
     # Create attendance session
     session = attendance_session_service.create_attendance_session(
@@ -159,6 +167,20 @@ def create_test_data(db: Session):
     )
     db.add(attendance1)
     db.add(attendance2)
+    assessment = Assessment(
+        name="Demo Test Assessment",
+        subject_id=subject.id,
+        semester_id=semester.id,
+        academic_year_id=academic_year.id,
+        assessment_type="Mid Term",
+        max_marks=100,
+        weight_percentage=1,
+        date=date(2026, 8, 12),
+    )
+    db.add(assessment)
+    db.flush()
+    db.add(StudentResult(assessment_id=assessment.id, student_id=student1.id, marks_obtained=91, grade="A+"))
+    db.add(StudentResult(assessment_id=assessment.id, student_id=student2.id, marks_obtained=72, grade="B+"))
     db.commit()
 
     return {
@@ -169,6 +191,8 @@ def create_test_data(db: Session):
         "student2": student2,
         "fee1": fee1,
         "payment": payment,
+        "batch": batch,
+        "subject": subject,
     }
 
 
@@ -331,6 +355,122 @@ def test_date_range_validation(client: TestClient, admin_token):
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "period=daily&date=2026-08-12",
+        "period=monthly&year=2026&month=8",
+        "period=yearly&year=2026",
+        "period=custom&from_date=2026-08-01&to_date=2026-08-31",
+    ],
+)
+def test_attendance_period_filters(client: TestClient, admin_token, test_data, query):
+    response = client.get(
+        f"/reports/attendance?{query}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert "summary" in body
+    assert "filters" in body
+
+
+@pytest.mark.parametrize(
+    "query,detail",
+    [
+        ("period=monthly&year=2026&month=13", None),
+        ("period=daily", "date is required"),
+        ("period=yearly", "year is required"),
+        ("period=custom&from_date=2026-09-01&to_date=2026-08-01", "from_date"),
+    ],
+)
+def test_invalid_report_filters(client: TestClient, admin_token, query, detail):
+    response = client.get(
+        f"/reports/attendance?{query}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_invalid_class_and_student_filters(client: TestClient, admin_token, test_data, test_db):
+    response = client.get(
+        "/reports/attendance?class_id=999999",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    response = client.get(
+        "/reports/attendance?student_id=999999",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    from app.models.batch import Batch
+
+    other_batch = Batch(
+        name="OTHER-CLASS",
+        course_id=test_data["course"].id,
+        academic_year_id=test_data["batch"].academic_year_id,
+        semester_id=test_data["batch"].semester_id,
+    )
+    test_db.add(other_batch)
+    test_db.commit()
+    response = client.get(
+        f"/reports/attendance?class_id={other_batch.id}&student_id={test_data['student1'].id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == status.HTTP_409_CONFLICT
+
+
+def test_specific_student_and_class_reports(client: TestClient, admin_token, test_data):
+    student_response = client.get(
+        f"/reports/attendance?student_id={test_data['student1'].id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert student_response.status_code == status.HTTP_200_OK
+    assert all(item["student_id"] == test_data["student1"].id for item in student_response.json()["items"])
+
+    class_response = client.get(
+        f"/reports/attendance?class_id={test_data['batch'].id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert class_response.status_code == status.HTTP_200_OK
+    assert class_response.json()["total"] >= 2
+
+
+def test_academic_and_top_performer_filters(client: TestClient, admin_token, test_data):
+    response = client.get(
+        f"/reports/academic?period=yearly&year=2026&class_id={test_data['batch'].id}&subject_id={test_data['subject'].id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["top_students"]
+
+    response = client.get(
+        f"/reports/top-performers?top_n=5&subject_id={test_data['subject'].id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["total"] <= 5
+
+
+def test_filtered_csv_and_pdf_exports(client: TestClient, admin_token, test_data):
+    csv_response = client.get(
+        f"/reports/attendance/export/csv?class_id={test_data['batch'].id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert csv_response.status_code == status.HTTP_200_OK
+    assert "text/csv" in csv_response.headers["content-type"]
+    assert "excused_days" in csv_response.text
+
+    pdf_response = client.get(
+        f"/reports/fees/export/pdf?student_id={test_data['student1'].id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert pdf_response.status_code == status.HTTP_200_OK
+    assert pdf_response.content.startswith(b"%PDF")
 
 
 def test_staff_can_access_reports(client: TestClient, staff_token, test_data):

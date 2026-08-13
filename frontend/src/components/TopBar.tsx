@@ -19,6 +19,8 @@ const pageTitles: Record<Page, { title: string; subtitle: string }> = {
   attendance: { title: "Attendance", subtitle: "Track daily student attendance" },
   fees: { title: "Fee Management", subtitle: "Invoices, payments & collection" },
   reports: { title: "Reports & Analytics", subtitle: "Academic performance & insights" },
+  users: { title: "User Management", subtitle: "Accounts, access and status" },
+  rolesPermissions: { title: "Roles & Permissions", subtitle: "Access matrix and role policy" },
   settings: { title: "Settings", subtitle: "School configuration & preferences" },
 };
 
@@ -167,7 +169,7 @@ export default function TopBar({ page, onToggleSidebar, user }: Props) {
                   <button key={`${item.type}-${item.id}`} onClick={() => {
                     setSearch("");
                     setSearchResults(null);
-                    const target = item.url.replace("/admin/courses", "/admin/classes").replace("/admin/users", "/admin/settings");
+                    const target = item.url.replace("/admin/courses", "/admin/classes");
                     window.history.pushState(null, "", target);
                     window.dispatchEvent(new PopStateEvent("popstate"));
                   }} style={{

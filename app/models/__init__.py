@@ -10,6 +10,7 @@ from app.models.fee_installment import FeeInstallment
 from app.models.fee_structure import FeeStructure
 from app.models.notification import Notification
 from app.models.payment import Payment
+from app.models.role_permission import Permission, Role, RolePermission
 from app.models.semester import Semester
 from app.models.student import Student
 from app.models.student_document import StudentDocument
@@ -31,6 +32,9 @@ __all__ = [
     "FeeStructure",
     "Notification",
     "Payment",
+    "Permission",
+    "Role",
+    "RolePermission",
     "Semester",
     "Student",
     "StudentDocument",

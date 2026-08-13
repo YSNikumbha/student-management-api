@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from statistics import mean
 
@@ -130,12 +130,28 @@ def get_student_academic_summary(db: Session, student_id: int) -> dict[str, floa
     return _summary_from_rows(student_id, rows)
 
 
-def get_student_gpa_map(db: Session, student_ids: list[int] | None = None) -> dict[int, dict[str, float | int | str]]:
+def get_student_gpa_map(
+    db: Session,
+    student_ids: list[int] | None = None,
+    *,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    class_id: int | None = None,
+    subject_id: int | None = None,
+) -> dict[int, dict[str, float | int | str]]:
     statement = select(StudentResult, Assessment).join(Assessment, StudentResult.assessment_id == Assessment.id)
     if student_ids is not None:
         if not student_ids:
             return {}
         statement = statement.where(StudentResult.student_id.in_(student_ids))
+    if class_id is not None:
+        statement = statement.join(Student, StudentResult.student_id == Student.id).where(Student.batch_id == class_id)
+    if subject_id is not None:
+        statement = statement.where(Assessment.subject_id == subject_id)
+    if start_date is not None:
+        statement = statement.where(Assessment.date >= start_date)
+    if end_date is not None:
+        statement = statement.where(Assessment.date <= end_date)
     rows_by_student: dict[int, list[tuple[StudentResult, Assessment]]] = {}
     for result, assessment in db.execute(statement).all():
         rows_by_student.setdefault(result.student_id, []).append((result, assessment))
@@ -167,10 +183,31 @@ def _summary_from_rows(
     }
 
 
-def get_academic_report(db: Session) -> dict:
-    students = list(db.execute(select(Student).options(selectinload(Student.batch))).scalars().all())
-    gpa_map = get_student_gpa_map(db, [student.id for student in students])
-    summaries = [gpa_map.get(student.id, _summary_from_rows(student.id, [])) for student in students]
+def get_academic_report(
+    db: Session,
+    *,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    class_id: int | None = None,
+    student_id: int | None = None,
+    subject_id: int | None = None,
+    top_n: int = 10,
+) -> dict:
+    student_statement = select(Student).options(selectinload(Student.batch))
+    if class_id is not None:
+        student_statement = student_statement.where(Student.batch_id == class_id)
+    if student_id is not None:
+        student_statement = student_statement.where(Student.id == student_id)
+    students = list(db.execute(student_statement).scalars().all())
+    gpa_map = get_student_gpa_map(
+        db,
+        [student.id for student in students],
+        start_date=start_date,
+        end_date=end_date,
+        class_id=class_id,
+        subject_id=subject_id,
+    )
+    summaries = [summary for summary in gpa_map.values() if int(summary["assessments_count"]) > 0]
     gpas = [float(summary["gpa"]) for summary in summaries]
     percentages = [float(summary["percentage"]) for summary in summaries]
     avg_gpa = round(mean(gpas), 2) if gpas else 0.0
@@ -178,7 +215,7 @@ def get_academic_report(db: Session) -> dict:
     pass_rate = round((sum(1 for gpa in gpas if gpa >= 1.0) / len(gpas)) * 100, 2) if gpas else 0.0
     honor_roll = sum(1 for gpa in gpas if gpa >= 3.7)
 
-    subject_rows = db.execute(
+    subject_statement = (
         select(
             Subject.id,
             Subject.name,
@@ -188,8 +225,19 @@ def get_academic_report(db: Session) -> dict:
         )
         .join(Assessment, Assessment.subject_id == Subject.id)
         .join(StudentResult, StudentResult.assessment_id == Assessment.id)
-        .group_by(Subject.id, Subject.name)
-    ).all()
+        .join(Student, StudentResult.student_id == Student.id)
+    )
+    if start_date is not None:
+        subject_statement = subject_statement.where(Assessment.date >= start_date)
+    if end_date is not None:
+        subject_statement = subject_statement.where(Assessment.date <= end_date)
+    if class_id is not None:
+        subject_statement = subject_statement.where(Student.batch_id == class_id)
+    if student_id is not None:
+        subject_statement = subject_statement.where(Student.id == student_id)
+    if subject_id is not None:
+        subject_statement = subject_statement.where(Subject.id == subject_id)
+    subject_rows = db.execute(subject_statement.group_by(Subject.id, Subject.name)).all()
     subject_performance = [
         {
             "subject": name,
@@ -214,7 +262,10 @@ def get_academic_report(db: Session) -> dict:
 
     batch_groups: dict[int | None, list[float]] = {}
     batch_names = {batch.id: batch.name for batch in db.execute(select(Batch)).scalars().all()}
-    for student, summary in zip(students, summaries, strict=False):
+    for student in students:
+        summary = gpa_map.get(student.id)
+        if summary is None or int(summary["assessments_count"]) == 0:
+            continue
         batch_groups.setdefault(student.batch_id, []).append(float(summary["gpa"]))
     class_average_gpa = [
         {
@@ -235,6 +286,7 @@ def get_academic_report(db: Session) -> dict:
                 "percentage": float(gpa_map.get(student.id, _summary_from_rows(student.id, []))["percentage"]),
             }
             for student in students
+            if student.id in gpa_map and int(gpa_map[student.id]["assessments_count"]) > 0
         ],
         key=lambda item: item["gpa"],
         reverse=True,
@@ -252,6 +304,6 @@ def get_academic_report(db: Session) -> dict:
         "subject_radar": [{"subject": item["subject"], "score": item["avg"]} for item in subject_performance],
         "gpa_distribution": gpa_distribution,
         "class_average_gpa": class_average_gpa,
-        "top_students": ranked[:10],
-        "needs_attention": list(reversed(ranked))[:10],
+        "top_students": ranked[:top_n],
+        "needs_attention": list(reversed(ranked))[:top_n],
     }

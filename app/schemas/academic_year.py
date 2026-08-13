@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import List
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class AcademicYearBase(BaseModel):
@@ -58,9 +57,22 @@ class AcademicYearUpdate(BaseModel):
         return end_date
 
 
+class AcademicYearSemesterSummary(BaseModel):
+    id: int
+    academic_year_id: int
+    course_id: int
+    number: int
+    name: str
+    start_date: date | None = None
+    end_date: date | None = None
+    is_active: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class AcademicYearResponse(AcademicYearBase):
     id: int
     is_active: bool
-    semesters: List[dict] = []
+    semesters: list[AcademicYearSemesterSummary] = Field(default_factory=list)
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)

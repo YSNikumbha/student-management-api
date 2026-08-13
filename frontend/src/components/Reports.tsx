@@ -5,7 +5,7 @@ import {
   LineChart, Line, AreaChart, Area, Legend
 } from "recharts";
 import { downloadReport, getReportsData } from "../api/reports";
-import type { ReportsData } from "../types";
+import type { ReportFilters, ReportPeriod, ReportsData } from "../types";
 import { avatarFor, formatMoney } from "../utils/format";
 import { ErrorState, LoadingState } from "./common";
 
@@ -26,12 +26,70 @@ function Card({ title, subtitle, children }: { title: string; subtitle?: string;
   );
 }
 
-function ExportButtons({ kind }: { kind: "students" | "attendance" | "fees" | "courses" }) {
+type ReportTab = "academic" | "attendance" | "finance" | "toppers";
+
+function inputStyle(): React.CSSProperties {
+  return {
+    background: "var(--secondary)",
+    border: "1px solid var(--border)",
+    borderRadius: 8,
+    padding: "9px 11px",
+    color: "var(--foreground)",
+    fontSize: 12,
+    fontFamily: "inherit",
+    outline: "none",
+  };
+}
+
+function readInitialTab(): ReportTab {
+  const tab = new URLSearchParams(window.location.search).get("tab");
+  return tab === "attendance" || tab === "finance" || tab === "toppers" ? tab : "academic";
+}
+
+function readInitialFilters(): ReportFilters {
+  const params = new URLSearchParams(window.location.search);
+  const numberValue = (key: string) => {
+    const value = params.get(key);
+    return value ? Number(value) : "";
+  };
+  return {
+    period: (params.get("period") as ReportPeriod | null) || "monthly",
+    date: params.get("date") || "",
+    month: numberValue("month") || new Date().getMonth() + 1,
+    year: numberValue("year") || new Date().getFullYear(),
+    from_date: params.get("from_date") || "",
+    to_date: params.get("to_date") || "",
+    class_id: numberValue("class_id"),
+    student_id: numberValue("student_id"),
+    subject_id: numberValue("subject_id"),
+    category_id: numberValue("category_id"),
+    attendance_status: (params.get("attendance_status") as never) || "",
+    fee_status: (params.get("fee_status") as never) || "",
+    top_n: (numberValue("top_n") || 10) as 5 | 10 | 20,
+  };
+}
+
+function queryFrom(tab: ReportTab, filters: ReportFilters): string {
+  const params = new URLSearchParams({ tab });
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  });
+  return params.toString();
+}
+
+function exportKind(tab: ReportTab): "academic" | "attendance" | "fees" | "top-performers" {
+  if (tab === "attendance") return "attendance";
+  if (tab === "finance") return "fees";
+  if (tab === "toppers") return "top-performers";
+  return "academic";
+}
+
+function ExportButtons({ kind, filters }: { kind: "academic" | "attendance" | "fees" | "top-performers"; filters: ReportFilters }) {
   const [error, setError] = useState("");
   async function download(format: "csv" | "pdf") {
     setError("");
     try {
-      await downloadReport(kind, format);
+      await downloadReport(kind, format, filters);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Download failed");
     }
@@ -46,16 +104,18 @@ function ExportButtons({ kind }: { kind: "students" | "attendance" | "fees" | "c
 }
 
 export default function Reports() {
-  const [activeTab, setActiveTab] = useState<"academic" | "attendance" | "finance" | "toppers">("academic");
+  const [activeTab, setActiveTab] = useState<ReportTab>(readInitialTab);
+  const [filters, setFilters] = useState<ReportFilters>(readInitialFilters);
   const [data, setData] = useState<ReportsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function load() {
+  async function load(nextFilters = filters, nextTab = activeTab) {
     setLoading(true);
     setError("");
     try {
-      setData(await getReportsData());
+      setData(await getReportsData(nextFilters));
+      window.history.replaceState(null, "", `/admin/reports?${queryFrom(nextTab, nextFilters)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Reports could not load");
     } finally {
@@ -67,6 +127,28 @@ export default function Reports() {
     load();
   }, []);
 
+  function updatePeriod(period: ReportPeriod) {
+    setFilters((current) => ({
+      ...current,
+      period,
+      date: "",
+      from_date: "",
+      to_date: "",
+      month: period === "monthly" ? (current.month || new Date().getMonth() + 1) : "",
+      year: period === "monthly" || period === "yearly" ? (current.year || new Date().getFullYear()) : "",
+    }));
+  }
+
+  function generate() {
+    load(filters, activeTab);
+  }
+
+  function resetFilters() {
+    const next = { period: "monthly" as const, month: new Date().getMonth() + 1, year: new Date().getFullYear(), top_n: 10 as const };
+    setFilters(next);
+    load(next, activeTab);
+  }
+
   const topStudents = useMemo(() => data?.academic.top_students || [], [data]);
   const needsAttention = useMemo(() => (data?.academic.needs_attention || []) as unknown as typeof topStudents, [data, topStudents]);
   const radarData = data?.academic.subject_radar || data?.academic.subject_performance.map((item) => ({ subject: item.subject, score: item.avg })) || [];
@@ -76,7 +158,7 @@ export default function Reports() {
   });
 
   if (loading) return <LoadingState />;
-  if (error || !data) return <div style={{ padding: 24 }}><ErrorState message={error || "Reports data is unavailable"} onRetry={load} /></div>;
+  if (error || !data) return <div style={{ padding: 24 }}><ErrorState message={error || "Reports data is unavailable"} onRetry={() => load()} /></div>;
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
@@ -88,10 +170,26 @@ export default function Reports() {
             ["finance", "Financial Report"],
             ["toppers", "Top Performers"],
           ] as const).map(([tab, label], i, arr) => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: "9px 22px", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, background: activeTab === tab ? "rgba(99,102,241,0.15)" : "transparent", color: activeTab === tab ? "#818CF8" : "var(--muted-foreground)", fontFamily: "inherit", borderRight: i < arr.length - 1 ? "1px solid var(--border)" : "none", transition: "all 0.15s" }}>{label}</button>
+            <button key={tab} onClick={() => { setActiveTab(tab); window.history.replaceState(null, "", `/admin/reports?${queryFrom(tab, filters)}`); }} style={{ padding: "9px 22px", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, background: activeTab === tab ? "rgba(99,102,241,0.15)" : "transparent", color: activeTab === tab ? "#818CF8" : "var(--muted-foreground)", fontFamily: "inherit", borderRight: i < arr.length - 1 ? "1px solid var(--border)" : "none", transition: "all 0.15s" }}>{label}</button>
           ))}
         </div>
-        <ExportButtons kind={activeTab === "finance" ? "fees" : activeTab === "attendance" ? "attendance" : "students"} />
+        <ExportButtons kind={exportKind(activeTab)} filters={filters} />
+      </div>
+
+      <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, padding: 16, display: "flex", gap: 10, alignItems: "end", flexWrap: "wrap" }}>
+        <label style={{ display: "grid", gap: 6 }}><span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)" }}>Period</span><select value={filters.period || ""} onChange={(event) => updatePeriod(event.target.value as ReportPeriod)} style={inputStyle()}><option value="daily">Daily</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option><option value="custom">Custom Range</option></select></label>
+        {filters.period === "daily" && <label style={{ display: "grid", gap: 6 }}><span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)" }}>Date</span><input type="date" value={filters.date || ""} onChange={(event) => setFilters({ ...filters, date: event.target.value })} style={inputStyle()} /></label>}
+        {filters.period === "monthly" && <><label style={{ display: "grid", gap: 6 }}><span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)" }}>Month</span><select value={filters.month || ""} onChange={(event) => setFilters({ ...filters, month: Number(event.target.value) })} style={inputStyle()}>{Array.from({ length: 12 }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}</select></label><label style={{ display: "grid", gap: 6 }}><span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)" }}>Year</span><input type="number" value={filters.year || ""} onChange={(event) => setFilters({ ...filters, year: Number(event.target.value) })} style={{ ...inputStyle(), width: 96 }} /></label></>}
+        {filters.period === "yearly" && <label style={{ display: "grid", gap: 6 }}><span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)" }}>Year</span><input type="number" value={filters.year || ""} onChange={(event) => setFilters({ ...filters, year: Number(event.target.value) })} style={{ ...inputStyle(), width: 96 }} /></label>}
+        {filters.period === "custom" && <><label style={{ display: "grid", gap: 6 }}><span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)" }}>From</span><input type="date" value={filters.from_date || ""} onChange={(event) => setFilters({ ...filters, from_date: event.target.value })} style={inputStyle()} /></label><label style={{ display: "grid", gap: 6 }}><span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)" }}>To</span><input type="date" value={filters.to_date || ""} onChange={(event) => setFilters({ ...filters, to_date: event.target.value })} style={inputStyle()} /></label></>}
+        <label style={{ display: "grid", gap: 6 }}><span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)" }}>Class</span><select value={filters.class_id || ""} onChange={(event) => setFilters({ ...filters, class_id: event.target.value ? Number(event.target.value) : "", student_id: "" })} style={inputStyle()}><option value="">All Classes</option>{(data.filter_options?.classes || []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <label style={{ display: "grid", gap: 6 }}><span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)" }}>Student</span><select value={filters.student_id || ""} onChange={(event) => setFilters({ ...filters, student_id: event.target.value ? Number(event.target.value) : "" })} style={inputStyle()}><option value="">All Students</option>{(data.filter_options?.students || []).filter((item) => !filters.class_id || item.class_id === filters.class_id).map((item) => <option key={item.id} value={item.id}>{item.student_code} · {item.name}</option>)}</select></label>
+        {(activeTab === "academic" || activeTab === "toppers") && <label style={{ display: "grid", gap: 6 }}><span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)" }}>Subject</span><select value={filters.subject_id || ""} onChange={(event) => setFilters({ ...filters, subject_id: event.target.value ? Number(event.target.value) : "" })} style={inputStyle()}><option value="">All Subjects</option>{(data.filter_options?.subjects || []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
+        {activeTab === "attendance" && <label style={{ display: "grid", gap: 6 }}><span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)" }}>Status</span><select value={filters.attendance_status || ""} onChange={(event) => setFilters({ ...filters, attendance_status: event.target.value as never })} style={inputStyle()}><option value="">All Status</option><option value="present">Present</option><option value="absent">Absent</option><option value="late">Late</option><option value="excused">Excused</option></select></label>}
+        {activeTab === "finance" && <><label style={{ display: "grid", gap: 6 }}><span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)" }}>Fee Status</span><select value={filters.fee_status || ""} onChange={(event) => setFilters({ ...filters, fee_status: event.target.value as never })} style={inputStyle()}><option value="">All Status</option><option value="paid">Paid</option><option value="partial">Partial</option><option value="overdue">Overdue</option><option value="unpaid">Pending</option></select></label><label style={{ display: "grid", gap: 6 }}><span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)" }}>Fee Type</span><select value={filters.category_id || ""} onChange={(event) => setFilters({ ...filters, category_id: event.target.value ? Number(event.target.value) : "" })} style={inputStyle()}><option value="">All Types</option>{(data.filter_options?.fee_categories || []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></>}
+        {activeTab === "toppers" && <label style={{ display: "grid", gap: 6 }}><span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted-foreground)" }}>Top N</span><select value={filters.top_n || 10} onChange={(event) => setFilters({ ...filters, top_n: Number(event.target.value) as 5 | 10 | 20 })} style={inputStyle()}><option value={5}>5</option><option value={10}>10</option><option value={20}>20</option></select></label>}
+        <button onClick={generate} style={{ background: "#6366F1", border: "none", color: "#fff", borderRadius: 8, padding: "10px 16px", cursor: "pointer", fontSize: 12, fontWeight: 800, fontFamily: "inherit" }}>Generate</button>
+        <button onClick={resetFilters} style={{ background: "var(--secondary)", border: "1px solid var(--border)", color: "var(--foreground)", borderRadius: 8, padding: "9px 14px", cursor: "pointer", fontSize: 12, fontWeight: 800, fontFamily: "inherit" }}>Reset Filters</button>
       </div>
 
       {activeTab === "academic" && (

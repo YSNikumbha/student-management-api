@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import List
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class SemesterBase(BaseModel):
@@ -61,10 +60,39 @@ class SemesterUpdate(BaseModel):
         return end_date
 
 
+class SemesterSubjectSummary(BaseModel):
+    id: int
+    course_id: int
+    semester_id: int
+    code: str
+    name: str
+    description: str | None = None
+    credits: int | None = None
+    is_active: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SemesterBatchSummary(BaseModel):
+    id: int
+    name: str
+    course_id: int
+    academic_year_id: int
+    semester_id: int | None = None
+    class_teacher_id: int | None = None
+    section: str | None = None
+    capacity: int | None = None
+    room: str | None = None
+    schedule: str | None = None
+    is_active: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class SemesterResponse(SemesterBase):
     id: int
     is_active: bool
-    subjects: List[dict] = []
-    batches: List[dict] = []
+    subjects: list[SemesterSubjectSummary] = Field(default_factory=list)
+    batches: list[SemesterBatchSummary] = Field(default_factory=list)
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)

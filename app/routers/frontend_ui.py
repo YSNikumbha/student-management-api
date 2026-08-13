@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from app.database.database import get_db
 from app.dependencies.auth import get_current_user, require_attendance_editor
 from app.models.user import User
+from app.routers.reports import _validate_fee_category, _validate_subject, report_filter_dependency
+from app.schemas.report import ReportFilter
 from app.services import frontend_service
 
 router = APIRouter(
@@ -98,7 +100,28 @@ def get_fees_ui(
 
 @router.get("/reports")
 def get_reports_ui(
+    filters: ReportFilter = Depends(report_filter_dependency),
+    attendance_status: str | None = None,
+    fee_status: str | None = None,
+    subject_id: int | None = None,
+    category_id: int | None = None,
+    top_n: int = 10,
     db: Session = Depends(get_db),
     _current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
-    return frontend_service.get_reports_ui(db)
+    _validate_subject(db, subject_id)
+    _validate_fee_category(db, category_id)
+    if top_n not in {5, 10, 20}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="top_n must be one of 5, 10, or 20",
+        )
+    return frontend_service.get_reports_ui(
+        db,
+        filters=filters,
+        attendance_status=attendance_status,
+        fee_status=fee_status,
+        subject_id=subject_id,
+        category_id=category_id,
+        top_n=top_n,
+    )

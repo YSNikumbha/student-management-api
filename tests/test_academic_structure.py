@@ -68,6 +68,35 @@ class TestAcademicYears:
         data = response.json()
         assert len(data["items"]) >= 1
 
+    def test_get_academic_years_serializes_semesters(
+        self,
+        client,
+        db: Session,
+        admin_token: str,
+        test_course: Course,
+    ):
+        year = academic_year_service.create_academic_year(
+            db, AcademicYearCreate(name="2026-27", start_date="2026-06-01", end_date="2027-05-31")
+        )
+        semester_service.create_semester(
+            db,
+            SemesterCreate(
+                academic_year_id=year.id,
+                course_id=test_course.id,
+                number=1,
+                name="Semester 1",
+            ),
+        )
+        db.commit()
+
+        response = client.get(
+            "/academic-years?page=1&page_size=100",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        item = next(item for item in response.json()["items"] if item["id"] == year.id)
+        assert item["semesters"][0]["name"] == "Semester 1"
+
     def test_delete_academic_year_with_semesters(self, client, db: Session, admin_token: str, test_course: Course):
         year = academic_year_service.create_academic_year(
             db, AcademicYearCreate(name="2026-27", start_date="2026-06-01", end_date="2027-05-31")
@@ -147,6 +176,55 @@ class TestSemesters:
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+    def test_get_semesters_serializes_subjects_and_batches(
+        self,
+        client,
+        db: Session,
+        admin_token: str,
+        test_course: Course,
+    ):
+        year = academic_year_service.create_academic_year(
+            db, AcademicYearCreate(name="2026-27", start_date="2026-06-01", end_date="2027-05-31")
+        )
+        semester = semester_service.create_semester(
+            db,
+            SemesterCreate(
+                academic_year_id=year.id,
+                course_id=test_course.id,
+                number=1,
+                name="Semester 1",
+            ),
+        )
+        subject_service.create_subject(
+            db,
+            SubjectCreate(
+                course_id=test_course.id,
+                semester_id=semester.id,
+                code="CS101",
+                name="Introduction to Programming",
+            ),
+        )
+        batch_service.create_batch(
+            db,
+            BatchCreate(
+                name="MCA-2026-A",
+                course_id=test_course.id,
+                academic_year_id=year.id,
+                semester_id=semester.id,
+                capacity=60,
+            ),
+        )
+        db.commit()
+
+        response = client.get(
+            "/semesters?page=1&page_size=100",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        item = next(item for item in response.json()["items"] if item["id"] == semester.id)
+        assert item["subjects"][0]["code"] == "CS101"
+        assert item["batches"][0]["name"] == "MCA-2026-A"
 
 
 class TestSubjects:

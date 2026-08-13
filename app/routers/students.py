@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
-from app.dependencies.auth import get_current_user, require_admin
+from app.dependencies.auth import require_permission
 from app.models.student import Student
 from app.models.user import User
 from app.schemas.pagination import PaginatedResponse, build_paginated_response
@@ -45,7 +45,7 @@ def create_student(
     student_data: StudentCreate,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_permission("students.create")),
 ) -> Student:
     _validate_course_id(db, student_data.course_id)
 
@@ -85,7 +85,7 @@ def create_student(
 @router.get(
     "",
     response_model=PaginatedResponse[StudentResponse],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_permission("students.view"))],
 )
 def get_students(
     search: str | None = None,
@@ -116,7 +116,7 @@ def get_students(
 @router.get(
     "/{student_id}",
     response_model=StudentResponse,
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_permission("students.view"))],
 )
 def get_student(
     student_id: int,
@@ -135,14 +135,14 @@ def get_student(
 @router.put(
     "/{student_id}",
     response_model=StudentResponse,
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_permission("students.edit"))],
 )
 def update_student(
     student_id: int,
     student_data: StudentUpdate,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("students.edit")),
 ) -> Student:
     student = student_service.get_student_by_id(db, student_id)
     if student is None:
@@ -209,7 +209,7 @@ def update_student(
 @router.delete(
     "/{student_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_permission("students.delete"))],
 )
 def delete_student(
     student_id: int,

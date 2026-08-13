@@ -46,12 +46,13 @@ def login(
     return TokenResponse(
         access_token=access_token,
         token_type="bearer",
-        user=user,
+        user=user_service.build_user_response(db, user),
     )
 
 
 @router.get("/me", response_model=UserResponse)
 def get_current_user_profile(
     current_user: User = Depends(get_current_user),
-) -> User:
-    return current_user
+    db: Session = Depends(get_db),
+) -> UserResponse:
+    return user_service.build_user_response(db, current_user)
